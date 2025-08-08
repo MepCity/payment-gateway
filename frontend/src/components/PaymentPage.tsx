@@ -221,13 +221,14 @@ const PaymentPage: React.FC = () => {
                   required
                 />
               </Box>
-              <Box sx={{ flex: '1 1 300px' }}>
+              <Box sx={{ flex: '1 1 200px' }}>
                 <TextField
                   fullWidth
                   label="CVV"
                   value={formData.cvv}
                   onChange={handleInputChange('cvv')}
-                  inputProps={{ maxLength: 4 }}
+                  placeholder="123"
+                  inputProps={{ maxLength: 4, type: 'password' }}
                   required
                 />
               </Box>

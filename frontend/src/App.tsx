@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import HomePage from './components/HomePage';
+import HomePage from './pages/HomePage';
 import PaymentPage from './components/PaymentPage';
 
 const theme = createTheme({

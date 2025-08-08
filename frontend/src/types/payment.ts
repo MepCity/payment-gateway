@@ -11,7 +11,6 @@ export interface Payment {
   cardNumber: string;
   cardHolderName: string;
   expiryDate: string;
-  cvv: string;
   description?: string;
   gatewayResponse?: string;
   gatewayTransactionId?: string;

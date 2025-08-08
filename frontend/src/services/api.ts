@@ -3,10 +3,14 @@ import { PaymentRequest, PaymentResponse, PaymentStatus } from '../types/payment
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
+// MERCH001 için API key - gerçek uygulamada environment variable'dan gelir
+const API_KEY = 'pk_merch001_live_abc123';
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'X-API-Key': API_KEY,
   },
 });
 
