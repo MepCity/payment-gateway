@@ -18,21 +18,24 @@ Modern ve güvenli ödeme gateway sistemi - Türk bankalarının test ortamları
 
 ```
 payment-gateway/
-├── gateway/                    # Spring Boot Backend
+├── backend/                   # Spring Boot Backend
 │   ├── src/main/java/com/payment/gateway/
-│   │   ├── controller/         # REST API endpoints
-│   │   ├── service/           # Business logic
-│   │   ├── model/             # JPA entities
-│   │   ├── dto/               # Data transfer objects
-│   │   └── repository/        # Data access layer
-│   ├── gateway-frontend/      # React Frontend
-│   │   ├── src/
-│   │   │   ├── components/    # React components
-│   │   │   ├── services/      # API calls
-│   │   │   └── types/         # TypeScript types
-│   │   └── public/
-│   └── pom.xml
-├── external-bank-tests.md     # Türk bankası test raporu
+│   │   ├── controller/        # REST API endpoints
+│   │   ├── service/          # Business logic
+│   │   ├── model/            # JPA entities
+│   │   ├── dto/              # Data transfer objects
+│   │   └── repository/       # Data access layer
+│   ├── pom.xml
+│   └── mvnw
+├── frontend/                  # React Frontend
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   ├── services/         # API calls
+│   │   └── types/            # TypeScript types
+│   ├── package.json
+│   └── public/
+├── docs/                      # Dokümantasyon
+│   └── external-bank-tests.md
 └── README.md
 ```
 
@@ -57,16 +60,16 @@ GRANT ALL PRIVILEGES ON DATABASE payment_gateway TO payment_user;
 
 ### 2. Backend Kurulumu
 ```bash
-cd gateway
-mvn clean install
-mvn spring-boot:run
+cd backend
+./mvnw clean install
+./mvnw spring-boot:run
 ```
 
 Backend çalışacak: `http://localhost:8080`
 
 ### 3. Frontend Kurulumu
 ```bash
-cd gateway/gateway-frontend
+cd frontend
 npm install
 npm start
 ```
