@@ -1,0 +1,53 @@
+package com.payment.gateway.repository;
+
+import com.payment.gateway.model.Refund;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface RefundRepository extends JpaRepository<Refund, Long> {
+    
+    Optional<Refund> findByRefundId(String refundId);
+    
+    Optional<Refund> findByPaymentId(String paymentId);
+    
+    List<Refund> findByTransactionId(String transactionId);
+    
+    List<Refund> findByMerchantId(String merchantId);
+    
+    List<Refund> findByCustomerId(String customerId);
+    
+    List<Refund> findByStatus(Refund.RefundStatus status);
+    
+    List<Refund> findByReason(Refund.RefundReason reason);
+    
+    List<Refund> findByMerchantIdAndStatus(String merchantId, Refund.RefundStatus status);
+    
+    List<Refund> findByCustomerIdAndStatus(String customerId, Refund.RefundStatus status);
+    
+    @Query("SELECT r FROM Refund r WHERE r.refundDate BETWEEN :startDate AND :endDate")
+    List<Refund> findByDateRange(@Param("startDate") LocalDateTime startDate, 
+                                  @Param("endDate") LocalDateTime endDate);
+    
+    @Query("SELECT r FROM Refund r WHERE r.merchantId = :merchantId AND r.refundDate BETWEEN :startDate AND :endDate")
+    List<Refund> findByMerchantIdAndDateRange(@Param("merchantId") String merchantId,
+                                               @Param("startDate") LocalDateTime startDate,
+                                               @Param("endDate") LocalDateTime endDate);
+    
+    @Query("SELECT COUNT(r) FROM Refund r WHERE r.status = :status")
+    long countByStatus(@Param("status") Refund.RefundStatus status);
+    
+    @Query("SELECT SUM(r.amount) FROM Refund r WHERE r.status = :status AND r.merchantId = :merchantId")
+    Double sumAmountByStatusAndMerchantId(@Param("status") Refund.RefundStatus status,
+                                         @Param("merchantId") String merchantId);
+    
+    boolean existsByRefundId(String refundId);
+    
+    boolean existsByGatewayRefundId(String gatewayRefundId);
+}
