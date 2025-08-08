@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class PaymentService {
     
     private final PaymentRepository paymentRepository;
+    private final RealBankIntegrationService realBankIntegrationService;
     
     @Transactional(noRollbackFor = DataIntegrityViolationException.class)
     public PaymentResponse createPayment(PaymentRequest request) {
@@ -46,7 +47,6 @@ public class PaymentService {
             payment.setCardBin(extractCardBin(request.getCardNumber()));
             payment.setCardLastFour(extractCardLastFour(request.getCardNumber()));
             payment.setExpiryDate(request.getExpiryDate());
-            payment.setCvv("***"); // Don't store actual CVV
             payment.setDescription(request.getDescription());
             payment.setCreatedAt(LocalDateTime.now());
             
@@ -58,7 +58,7 @@ public class PaymentService {
             payment.setStatus(Payment.PaymentStatus.PROCESSING);
             payment = paymentRepository.save(payment);
             
-            Payment.PaymentStatus finalStatus = processPaymentThroughGateway(payment);
+            Payment.PaymentStatus finalStatus = processPaymentThroughGateway(request, payment);
             payment.setStatus(finalStatus);
             
             // Set completedAt if payment is successful
@@ -193,6 +193,56 @@ public class PaymentService {
         }
     }
     
+    /**
+     * 3D Secure sürecini tamamlar
+     */
+    @Transactional
+    public PaymentResponse complete3DSecurePayment(String paymentId, String bankTransactionId, String authCode, boolean success) {
+        log.info("Completing 3D Secure payment: {}, success: {}", paymentId, success);
+        
+        try {
+            Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
+            if (paymentOpt.isEmpty()) {
+                return createErrorResponse("Payment not found: " + paymentId);
+            }
+            
+            Payment payment = paymentOpt.get();
+            
+            if (payment.getStatus() != Payment.PaymentStatus.PENDING) {
+                return createErrorResponse("Payment is not in pending state: " + payment.getStatus());
+            }
+            
+            if (success) {
+                // 3D Secure başarılı
+                payment.setStatus(Payment.PaymentStatus.COMPLETED);
+                payment.setCompletedAt(LocalDateTime.now());
+                payment.setGatewayResponse("3D Secure authentication successful");
+                if (bankTransactionId != null) {
+                    payment.setGatewayTransactionId(bankTransactionId);
+                }
+                
+                log.info("3D Secure payment completed successfully: {}", paymentId);
+                
+            } else {
+                // 3D Secure başarısız
+                payment.setStatus(Payment.PaymentStatus.FAILED);
+                payment.setGatewayResponse("3D Secure authentication failed");
+                
+                log.info("3D Secure payment failed: {}", paymentId);
+            }
+            
+            payment = paymentRepository.save(payment);
+            
+            return createPaymentResponse(payment, 
+                success ? "3D Secure payment completed successfully" : "3D Secure payment failed", 
+                success);
+                
+        } catch (Exception e) {
+            log.error("Error completing 3D Secure payment: {}", paymentId, e);
+            return createErrorResponse("Error completing 3D Secure payment: " + e.getMessage());
+        }
+    }
+    
     private String generateTransactionId() {
         return "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
@@ -296,10 +346,59 @@ public class PaymentService {
         return cleanCardNumber.length() >= 4 ? cleanCardNumber.substring(cleanCardNumber.length() - 4) : null;
     }
     
-    private Payment.PaymentStatus processPaymentThroughGateway(Payment payment) {
-        // Simulate payment gateway processing
-        // In real implementation, this would call external payment gateway API
+    private Payment.PaymentStatus processPaymentThroughGateway(PaymentRequest request, Payment payment) {
+        log.info("Processing payment through gateway for payment: {}", payment.getPaymentId());
         
+        try {
+            // Önce gerçek banka entegrasyonunu dene
+            RealBankIntegrationService.BankPaymentResult bankResult = 
+                realBankIntegrationService.processPayment(request, payment);
+            
+            if (bankResult != null) {
+                // Gerçek banka yanıtı var
+                log.info("Real bank integration response received for payment: {}", payment.getPaymentId());
+                
+                if (bankResult.isRequires3DSecure()) {
+                    // 3D Secure gerekli - bu durumda frontend'e özel yanıt dönmemiz gerekecek
+                    log.info("3D Secure required for payment: {}, URL: {}", payment.getPaymentId(), bankResult.getThreeDSecureUrl());
+                    payment.setGatewayResponse("3D Secure authentication required: " + bankResult.getThreeDSecureUrl());
+                    payment.setGatewayTransactionId("3DS-" + UUID.randomUUID().toString().substring(0, 8));
+                    return Payment.PaymentStatus.PENDING; // 3D Secure bekliyor
+                    
+                } else if (bankResult.isSuccess()) {
+                    // Başarılı
+                    payment.setGatewayResponse(bankResult.getBankResponseMessage());
+                    payment.setGatewayTransactionId(bankResult.getBankTransactionId());
+                    if (bankResult.getCompletedAt() != null) {
+                        payment.setCompletedAt(bankResult.getCompletedAt());
+                    }
+                    return Payment.PaymentStatus.COMPLETED;
+                    
+                } else {
+                    // Hata
+                    payment.setGatewayResponse(bankResult.getErrorMessage() != null ? 
+                        bankResult.getErrorMessage() : bankResult.getBankResponseMessage());
+                    payment.setGatewayTransactionId("ERR-" + UUID.randomUUID().toString().substring(0, 8));
+                    return Payment.PaymentStatus.FAILED;
+                }
+            }
+            
+            // Gerçek banka entegrasyonu yoksa simülasyon moduna geç
+            log.info("Falling back to simulation mode for payment: {}", payment.getPaymentId());
+            return processSimulatedPayment(payment);
+            
+        } catch (Exception e) {
+            log.error("Error processing payment through gateway", e);
+            payment.setGatewayResponse("Gateway error: " + e.getMessage());
+            payment.setGatewayTransactionId("ERR-" + UUID.randomUUID().toString().substring(0, 8));
+            return Payment.PaymentStatus.FAILED;
+        }
+    }
+    
+    /**
+     * Simülasyon modu - mevcut mantık
+     */
+    private Payment.PaymentStatus processSimulatedPayment(Payment payment) {
         try {
             // Simulate processing time
             Thread.sleep(100);

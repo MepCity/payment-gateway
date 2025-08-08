@@ -56,9 +56,6 @@ public class Payment {
     @Column(nullable = false)
     private String expiryDate;
     
-    @Column(nullable = false)
-    private String cvv;
-    
     @Column(length = 20)
     private String cardBrand;
     

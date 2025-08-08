@@ -4,6 +4,7 @@ import com.payment.gateway.dto.PaymentRequest;
 import com.payment.gateway.dto.PaymentResponse;
 import com.payment.gateway.model.Payment;
 import com.payment.gateway.service.PaymentService;
+import com.payment.gateway.service.MerchantAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/v1/payments")
@@ -21,13 +30,40 @@ import java.util.List;
 public class PaymentController {
     
     private final PaymentService paymentService;
+    private final MerchantAuthService merchantAuthService;
     
     // POST - Create new payment
     @PostMapping
-    public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody PaymentRequest request) {
-        log.info("Creating new payment for merchant: {}, customer: {}", 
-                request.getMerchantId(), request.getCustomerId());
+    public ResponseEntity<PaymentResponse> createPayment(
+            @Valid @RequestBody PaymentRequest request,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         
+        log.info("🔐 Payment request - Merchant: {}, API Key: {}", 
+                request.getMerchantId(), apiKey != null ? "***" + apiKey.substring(Math.max(0, apiKey.length() - 4)) : "missing");
+        
+        // 1. API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile ödeme denemesi");
+            PaymentResponse errorResponse = new PaymentResponse();
+            errorResponse.setSuccess(false);
+            errorResponse.setMessage("Geçersiz API key. Lütfen doğru API key kullanın.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        }
+        
+        // 2. API Key ve Merchant ID eşleşmesi kontrolü
+        if (!merchantAuthService.validateMerchantAccess(apiKey, request.getMerchantId())) {
+            log.warn("🚫 API key ve merchant ID uyumsuzluğu - API: {}, Merchant: {}", 
+                apiKey, request.getMerchantId());
+            PaymentResponse errorResponse = new PaymentResponse();
+            errorResponse.setSuccess(false);
+            errorResponse.setMessage("API key bu merchant için geçerli değil.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+        
+        log.info("✅ Merchant authentication başarılı - Processing payment for: {}", 
+                request.getMerchantId());
+        
+        // 3. Ödeme işlemini gerçekleştir
         PaymentResponse response = paymentService.createPayment(request);
         
         if (response.isSuccess()) {
@@ -143,6 +179,206 @@ public class PaymentController {
         } else {
             return ResponseEntity.badRequest().body(response);
         }
+    }
+    
+    // 3D Secure Success Callback
+    @PostMapping("/3d-callback/success")
+    public ResponseEntity<String> handle3DSecureSuccess(@RequestParam Map<String, String> params) {
+        log.info("3D Secure success callback received with params: {}", params);
+        
+        try {
+            String orderId = params.get("orderId");
+            String transactionId = params.get("transactionId");
+            String authCode = params.get("authCode");
+            
+            if (orderId != null) {
+                // Payment'i başarılı olarak güncelle
+                PaymentResponse response = paymentService.complete3DSecurePayment(orderId, transactionId, authCode, true);
+                
+                if (response.isSuccess()) {
+                    // Başarılı ödeme sonrası yönlendirme sayfası
+                    return ResponseEntity.ok("""
+                        <html>
+                        <head><title>Payment Successful</title></head>
+                        <body>
+                        <h2>✅ Payment Successful!</h2>
+                        <p>Transaction ID: %s</p>
+                        <p>Order ID: %s</p>
+                        <script>
+                            setTimeout(function() {
+                                window.close();
+                            }, 3000);
+                        </script>
+                        </body>
+                        </html>
+                        """.formatted(transactionId, orderId));
+                } else {
+                    return ResponseEntity.badRequest().body("Payment completion failed: " + response.getMessage());
+                }
+            } else {
+                return ResponseEntity.badRequest().body("Missing orderId parameter");
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing 3D Secure success callback", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error processing 3D Secure callback: " + e.getMessage());
+        }
+    }
+    
+    // 3D Secure Fail Callback
+    @PostMapping("/3d-callback/fail")
+    public ResponseEntity<String> handle3DSecureFail(@RequestParam Map<String, String> params) {
+        log.info("3D Secure fail callback received with params: {}", params);
+        
+        try {
+            String orderId = params.get("orderId");
+            String errorMessage = params.get("errorMessage");
+            
+            if (orderId != null) {
+                // Payment'i başarısız olarak güncelle
+                PaymentResponse response = paymentService.complete3DSecurePayment(orderId, null, null, false);
+                
+                // Başarısız ödeme sonrası yönlendirme sayfası
+                return ResponseEntity.ok("""
+                    <html>
+                    <head><title>Payment Failed</title></head>
+                    <body>
+                    <h2>❌ Payment Failed!</h2>
+                    <p>Order ID: %s</p>
+                    <p>Error: %s</p>
+                    <script>
+                        setTimeout(function() {
+                            window.close();
+                        }, 3000);
+                    </script>
+                    </body>
+                    </html>
+                    """.formatted(orderId, errorMessage != null ? errorMessage : "3D Secure authentication failed"));
+            } else {
+                return ResponseEntity.badRequest().body("Missing orderId parameter");
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing 3D Secure fail callback", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error processing 3D Secure callback: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Banka webhook endpoint'i - Garanti BBVA'dan gelen bildirimler
+     */
+    @PostMapping("/bank-webhooks/garanti")
+    public ResponseEntity<Map<String, Object>> handleGarantiWebhook(
+            @RequestBody Map<String, Object> webhookData,
+            @RequestHeader Map<String, String> headers) {
+        
+        log.info("🏦 Garanti BBVA webhook alındı: {}", webhookData);
+        log.info("📋 Headers: {}", headers);
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            String eventType = (String) webhookData.get("eventType");
+            String orderId = (String) webhookData.get("orderId");
+            String status = (String) webhookData.get("status");
+            
+            log.info("🔄 Event Type: {}, Order ID: {}, Status: {}", eventType, orderId, status);
+            
+            switch (eventType) {
+                case "3D_SECURE_RESULT":
+                    handle3DSecureResult(orderId, webhookData);
+                    break;
+                case "PAYMENT_STATUS_CHANGE":
+                    handlePaymentStatusChange(orderId, status, webhookData);
+                    break;
+                case "CHARGEBACK":
+                    handleChargeback(orderId, webhookData);
+                    break;
+                case "SETTLEMENT":
+                    handleSettlement(orderId, webhookData);
+                    break;
+                default:
+                    log.warn("⚠️ Bilinmeyen event type: {}", eventType);
+            }
+            
+            response.put("status", "SUCCESS");
+            response.put("message", "Webhook başarıyla işlendi");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("❌ Garanti webhook işlenirken hata", e);
+            response.put("status", "ERROR");
+            response.put("message", "Webhook işlenirken hata: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    /**
+     * Diğer bankalar için webhook endpoint'leri
+     */
+    @PostMapping("/bank-webhooks/isbank")
+    public ResponseEntity<Map<String, Object>> handleIsBankWebhook(
+            @RequestBody Map<String, Object> webhookData,
+            @RequestHeader Map<String, String> headers) {
+        
+        log.info("🏦 İş Bankası webhook alındı: {}", webhookData);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("message", "İş Bankası webhook işlendi");
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @PostMapping("/bank-webhooks/akbank")
+    public ResponseEntity<Map<String, Object>> handleAkbankWebhook(
+            @RequestBody Map<String, Object> webhookData,
+            @RequestHeader Map<String, String> headers) {
+        
+        log.info("🏦 Akbank webhook alındı: {}", webhookData);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("message", "Akbank webhook işlendi");
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    // Webhook helper methods
+    private void handle3DSecureResult(String orderId, Map<String, Object> data) {
+        log.info("🔐 3D Secure sonucu işleniyor - Order: {}", orderId);
+        String status = (String) data.get("status");
+        String authCode = (String) data.get("authCode");
+        
+        if ("SUCCESS".equals(status)) {
+            log.info("✅ 3D Secure başarılı - Order: {}, AuthCode: {}", orderId, authCode);
+            // Payment'ı başarılı olarak güncelle
+            // paymentService.complete3DSecurePayment(orderId, authCode);
+        } else {
+            log.warn("❌ 3D Secure başarısız - Order: {}", orderId);
+            // Payment'ı başarısız olarak güncelle
+            // paymentService.fail3DSecurePayment(orderId, (String) data.get("errorMessage"));
+        }
+    }
+    
+    private void handlePaymentStatusChange(String orderId, String status, Map<String, Object> data) {
+        log.info("💳 Ödeme durumu değişti - Order: {}, Yeni durum: {}", orderId, status);
+    }
+    
+    private void handleChargeback(String orderId, Map<String, Object> data) {
+        log.info("🔄 Chargeback bildirimi - Order: {}", orderId);
+        String reason = (String) data.get("reason");
+        String amount = (String) data.get("amount");
+        log.info("📝 Chargeback nedeni: {}, Tutar: {}", reason, amount);
+    }
+    
+    private void handleSettlement(String orderId, Map<String, Object> data) {
+        log.info("💰 Settlement bildirimi - Order: {}", orderId);
+        String settledAmount = (String) data.get("settledAmount");
+        String settlementDate = (String) data.get("settlementDate");
+        log.info("💵 Tahsilat tutarı: {}, Tarih: {}", settledAmount, settlementDate);
     }
     
     // Health check endpoint
