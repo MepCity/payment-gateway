@@ -165,6 +165,11 @@ public class AuthController {
         return ResponseEntity.ok("Auth Service is running!");
     }
     
+    @GetMapping("/test")
+    public ResponseEntity<String> testEndpoint() {
+        return ResponseEntity.ok("Test endpoint working!");
+    }
+    
     private Map<String, Object> createErrorResponse(String message) {
         Map<String, Object> error = new HashMap<>();
         error.put("success", false);
