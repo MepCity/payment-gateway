@@ -41,6 +41,14 @@ public class PaymentController {
         log.info("🔐 Payment request - Merchant: {}, API Key: {}", 
                 request.getMerchantId(), apiKey != null ? "***" + apiKey.substring(Math.max(0, apiKey.length() - 4)) : "missing");
         
+        // Request body'yi detaylı logla
+        log.info("📋 Request Body Details:");
+        log.info("   - Merchant ID: {}", request.getMerchantId());
+        log.info("   - Amount: {}", request.getAmount());
+        log.info("   - Currency: {}", request.getCurrency());
+        log.info("   - Description: {}", request.getDescription());
+        log.info("   - API Key: {}", apiKey != null ? "***" + apiKey.substring(Math.max(0, apiKey.length() - 4)) : "missing");
+        
         // 1. API Key kontrolü
         if (!merchantAuthService.isValidApiKey(apiKey)) {
             log.warn("🚫 Geçersiz API key ile ödeme denemesi");

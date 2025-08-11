@@ -4,7 +4,7 @@ export interface Payment {
   transactionId?: string;
   merchantId: string;
   customerId: string;
-  amount: number;
+  amount: string;
   currency: string;
   status?: PaymentStatus;
   paymentMethod: PaymentMethod;
@@ -21,7 +21,7 @@ export interface Payment {
 export interface PaymentRequest {
   merchantId: string;
   customerId: string;
-  amount: number;
+  amount: string;
   currency: string;
   paymentMethod: PaymentMethod;
   cardNumber: string;
@@ -37,7 +37,7 @@ export interface PaymentResponse {
   transactionId?: string;
   merchantId: string;
   customerId: string;
-  amount: number;
+  amount: string;
   currency: string;
   status: PaymentStatus;
   paymentMethod: PaymentMethod;

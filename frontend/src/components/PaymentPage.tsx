@@ -23,7 +23,7 @@ const PaymentPage: React.FC = () => {
   const [formData, setFormData] = useState<PaymentRequest>({
     merchantId: 'MERCH001',
     customerId: '',
-    amount: 0,
+    amount: '',
     currency: 'TRY',
     paymentMethod: PaymentMethod.CREDIT_CARD,
     cardNumber: '',
@@ -39,7 +39,7 @@ const PaymentPage: React.FC = () => {
   const handleInputChange = (field: keyof PaymentRequest) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const value = field === 'amount' ? parseFloat(event.target.value) || 0 : event.target.value;
+    const value = event.target.value;
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -107,9 +107,35 @@ const PaymentPage: React.FC = () => {
         data: response
       });
     } catch (error: any) {
+      console.error('Payment error details:', error);
+      
+      let errorMessage = 'Ödeme işlemi sırasında bir hata oluştu.';
+      
+      if (error.response) {
+        // Backend'den gelen hata
+        console.log('Error response:', error.response);
+        console.log('Error status:', error.response.status);
+        console.log('Error data:', error.response.data);
+        
+        if (error.response.data && error.response.data.errors) {
+          // Validation hataları
+          const validationErrors = error.response.data.errors;
+          errorMessage = 'Validation hataları:\n' + Object.entries(validationErrors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join('\n');
+        } else if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else if (error.request) {
+        // Network hatası
+        errorMessage = 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setResult({
         success: false,
-        message: error.message || 'Ödeme işlemi sırasında bir hata oluştu.'
+        message: errorMessage
       });
     } finally {
       setLoading(false);
@@ -160,15 +186,15 @@ const PaymentPage: React.FC = () => {
             
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Box sx={{ flex: '1 1 300px' }}>
-                <TextField
-                  fullWidth
-                  label="Tutar"
-                  type="number"
-                  value={formData.amount || ''}
-                  onChange={handleInputChange('amount')}
-                  inputProps={{ min: 0, step: 0.01 }}
-                  required
-                />
+                              <TextField
+                fullWidth
+                label="Tutar"
+                type="text"
+                value={formData.amount}
+                onChange={handleInputChange('amount')}
+                placeholder="0.00"
+                required
+              />
               </Box>
               <Box sx={{ flex: '1 1 300px' }}>
                 <FormControl fullWidth>

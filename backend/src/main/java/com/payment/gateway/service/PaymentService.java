@@ -427,7 +427,7 @@ public class PaymentService {
         response.setTransactionId(payment.getTransactionId());
         response.setMerchantId(payment.getMerchantId());
         response.setCustomerId(payment.getCustomerId());
-        response.setAmount(payment.getAmount());
+        response.setAmount(payment.getAmount().toString());
         response.setCurrency(payment.getCurrency());
         response.setStatus(payment.getStatus());
         response.setPaymentMethod(payment.getPaymentMethod());
