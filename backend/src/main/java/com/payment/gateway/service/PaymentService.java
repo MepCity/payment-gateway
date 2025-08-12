@@ -3,6 +3,7 @@ package com.payment.gateway.service;
 import com.payment.gateway.dto.PaymentRequest;
 import com.payment.gateway.dto.PaymentResponse;
 import com.payment.gateway.model.Payment;
+import com.payment.gateway.model.RiskAssessment;
 import com.payment.gateway.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,15 @@ public class PaymentService {
     
     private final PaymentRepository paymentRepository;
     private final RealBankIntegrationService realBankIntegrationService;
+    private final RiskAssessmentService riskAssessmentService;
     
     @Transactional(noRollbackFor = DataIntegrityViolationException.class)
     public PaymentResponse createPayment(PaymentRequest request) {
+        return createPayment(request, null, null);
+    }
+    
+    @Transactional(noRollbackFor = DataIntegrityViolationException.class)
+    public PaymentResponse createPayment(PaymentRequest request, String ipAddress, String userAgent) {
         try {
             // Generate unique payment ID and transaction ID
             String paymentId = generatePaymentId();
@@ -54,11 +61,52 @@ public class PaymentService {
             payment = paymentRepository.save(payment);
             log.info("Payment created with ID: {}", paymentId);
             
+            // FRAUD DETECTION - Risk Assessment
+            log.info("Starting fraud detection for payment: {}", paymentId);
+            RiskAssessment riskAssessment = riskAssessmentService.assessPaymentRisk(
+                request, payment, ipAddress, userAgent);
+            
+            // Check risk assessment result
+            if (riskAssessment.getAction() == RiskAssessment.AssessmentAction.DECLINE) {
+                payment.setStatus(Payment.PaymentStatus.FAILED);
+                payment.setGatewayResponse("Payment declined due to high fraud risk: " + riskAssessment.getRiskLevel());
+                payment = paymentRepository.save(payment);
+                
+                log.warn("Payment {} declined due to fraud risk - Risk Level: {}, Score: {}", 
+                        paymentId, riskAssessment.getRiskLevel(), riskAssessment.getRiskScore());
+                
+                return createPaymentResponse(payment, 
+                    "Payment declined due to security concerns. Risk Score: " + riskAssessment.getRiskScore(), false);
+            }
+            
+            if (riskAssessment.getAction() == RiskAssessment.AssessmentAction.REVIEW) {
+                payment.setStatus(Payment.PaymentStatus.CANCELLED); // Hold for manual review
+                payment.setGatewayResponse("Payment held for manual review due to elevated fraud risk");
+                payment = paymentRepository.save(payment);
+                
+                log.warn("Payment {} held for manual review - Risk Level: {}, Score: {}", 
+                        paymentId, riskAssessment.getRiskLevel(), riskAssessment.getRiskScore());
+                
+                return createPaymentResponse(payment, 
+                    "Payment is being reviewed for security. You will be notified of the outcome.", false);
+            }
+            
             // Process payment through gateway
             payment.setStatus(Payment.PaymentStatus.PROCESSING);
             payment = paymentRepository.save(payment);
             
-            Payment.PaymentStatus finalStatus = processPaymentThroughGateway(request, payment);
+            Payment.PaymentStatus finalStatus;
+            
+            // Additional verification for medium risk transactions
+            if (riskAssessment.getAction() == RiskAssessment.AssessmentAction.CHALLENGE) {
+                log.info("Payment {} requires additional verification - implementing 3D Secure flow", paymentId);
+                // In a real implementation, this would redirect to 3D Secure
+                finalStatus = processPaymentThroughGateway(request, payment);
+            } else {
+                // Low risk - proceed normally
+                finalStatus = processPaymentThroughGateway(request, payment);
+            }
+            
             payment.setStatus(finalStatus);
             
             // Set completedAt if payment is successful

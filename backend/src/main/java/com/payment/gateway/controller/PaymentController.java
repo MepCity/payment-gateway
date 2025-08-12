@@ -5,6 +5,7 @@ import com.payment.gateway.dto.PaymentResponse;
 import com.payment.gateway.model.Payment;
 import com.payment.gateway.service.PaymentService;
 import com.payment.gateway.service.MerchantAuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,8 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<PaymentResponse> createPayment(
             @Valid @RequestBody PaymentRequest request,
-            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+            HttpServletRequest httpRequest) {
         
         log.info("🔐 Payment request - Merchant: {}, API Key: {}", 
                 request.getMerchantId(), apiKey != null ? "***" + apiKey.substring(Math.max(0, apiKey.length() - 4)) : "missing");
@@ -63,8 +65,14 @@ public class PaymentController {
         log.info("✅ Merchant authentication başarılı - Processing payment for: {}", 
                 request.getMerchantId());
         
-        // 3. Ödeme işlemini gerçekleştir
-        PaymentResponse response = paymentService.createPayment(request);
+        // 3. IP address ve User Agent bilgilerini al (fraud detection için)
+        String ipAddress = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+        
+        log.debug("Client info - IP: {}, User-Agent: {}", ipAddress, userAgent);
+        
+        // 4. Ödeme işlemini gerçekleştir (fraud detection ile)
+        PaymentResponse response = paymentService.createPayment(request, ipAddress, userAgent);
         
         if (response.isSuccess()) {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -385,5 +393,41 @@ public class PaymentController {
     @GetMapping("/health")
     public ResponseEntity<String> healthCheck() {
         return ResponseEntity.ok("Payment Gateway is running!");
+    }
+    
+    /**
+     * Extract client IP address from HTTP request
+     * Handles proxy headers like X-Forwarded-For, X-Real-IP
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String[] headerNames = {
+            "X-Forwarded-For",
+            "X-Real-IP", 
+            "Proxy-Client-IP",
+            "WL-Proxy-Client-IP",
+            "HTTP_X_FORWARDED_FOR",
+            "HTTP_X_FORWARDED",
+            "HTTP_X_CLUSTER_CLIENT_IP",
+            "HTTP_CLIENT_IP",
+            "HTTP_FORWARDED_FOR",
+            "HTTP_FORWARDED",
+            "HTTP_VIA",
+            "REMOTE_ADDR"
+        };
+        
+        for (String header : headerNames) {
+            String ip = request.getHeader(header);
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                // X-Forwarded-For can contain multiple IPs, take the first one
+                if (ip.contains(",")) {
+                    ip = ip.split(",")[0].trim();
+                }
+                return ip;
+            }
+        }
+        
+        // Fallback to remote address
+        String remoteAddr = request.getRemoteAddr();
+        return remoteAddr != null ? remoteAddr : "unknown";
     }
 }
