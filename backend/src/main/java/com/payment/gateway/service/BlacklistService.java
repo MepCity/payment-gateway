@@ -24,13 +24,14 @@ public class BlacklistService {
         
         LocalDateTime now = LocalDateTime.now();
         
-        // Check card number
-        if (isCardBlacklisted(request.getCardNumber(), now)) {
-            log.warn("Payment blocked - card number is blacklisted: {}", maskCardNumber(request.getCardNumber()));
+        // Check card BIN + Last4 combination (PCI DSS compliant)
+        if (isCardBinLast4Blacklisted(request.getCardNumber(), now)) {
+            log.warn("Payment blocked - card BIN+Last4 is blacklisted: {} ending in {}", 
+                    getCardBin(request.getCardNumber()), getLastFourDigits(request.getCardNumber()));
             return true;
         }
         
-        // Check card BIN
+        // Check card BIN only
         if (isCardBinBlacklisted(request.getCardNumber(), now)) {
             log.warn("Payment blocked - card BIN is blacklisted: {}", getCardBin(request.getCardNumber()));
             return true;
@@ -49,9 +50,18 @@ public class BlacklistService {
     private boolean isCardBlacklisted(String cardNumber, LocalDateTime now) {
         if (cardNumber == null) return false;
         
-        // Check full card number
-        Optional<BlacklistEntry> entry = blacklistRepository.findActiveEntry(
-                BlacklistEntry.BlacklistType.CARD_NUMBER, cardNumber, now);
+        // Check BIN + Last4 combination (new PCI DSS compliant method)
+        return isCardBinLast4Blacklisted(cardNumber, now);
+    }
+    
+    private boolean isCardBinLast4Blacklisted(String cardNumber, LocalDateTime now) {
+        if (cardNumber == null || cardNumber.length() < 10) return false;
+        
+        String cardBin = getCardBin(cardNumber);
+        String lastFour = getLastFourDigits(cardNumber);
+        
+        // Check if BIN+Last4 combination is blacklisted
+        Optional<BlacklistEntry> entry = blacklistRepository.findActiveCardBinLast4Entry(cardBin, lastFour, now);
         
         return entry.isPresent();
     }
@@ -133,6 +143,22 @@ public class BlacklistService {
         return false;
     }
     
+    @Transactional
+    public boolean removeCardFromBlacklist(String cardBin, String lastFour) {
+        Optional<BlacklistEntry> entry = blacklistRepository.findActiveCardBinLast4Entry(cardBin, lastFour, LocalDateTime.now());
+        if (entry.isPresent()) {
+            BlacklistEntry blacklistEntry = entry.get();
+            blacklistEntry.setIsActive(false);
+            blacklistRepository.save(blacklistEntry);
+            
+            log.info("Removed card from blacklist - BIN: {}, Last4: {}", cardBin, lastFour);
+            return true;
+        }
+        
+        log.warn("Card not found in blacklist for removal - BIN: {}, Last4: {}", cardBin, lastFour);
+        return false;
+    }
+    
     public List<BlacklistEntry> getBlacklistByType(BlacklistEntry.BlacklistType type) {
         return blacklistRepository.findByTypeAndIsActiveTrue(type);
     }
@@ -167,8 +193,27 @@ public class BlacklistService {
     // Convenience methods for common blacklist operations
     public BlacklistEntry addCardToBlacklist(String cardNumber, BlacklistEntry.BlacklistReason reason, 
                                            String description, String addedBy) {
-        return addToBlacklist(BlacklistEntry.BlacklistType.CARD_NUMBER, cardNumber, reason, 
-                            description, addedBy, null, null);
+        
+        // Extract BIN and Last4 for PCI DSS compliance
+        String cardBin = getCardBin(cardNumber);
+        String lastFour = getLastFourDigits(cardNumber);
+        
+        BlacklistEntry entry = new BlacklistEntry();
+        entry.setType(BlacklistEntry.BlacklistType.CARD_BIN_LAST4);
+        entry.setValue(""); // Not used for card entries
+        entry.setCardBin(cardBin);
+        entry.setLastFourDigits(lastFour);
+        entry.setReason(reason);
+        entry.setDescription(description);
+        entry.setIsActive(true);
+        entry.setAddedBy(addedBy);
+        
+        BlacklistEntry savedEntry = blacklistRepository.save(entry);
+        
+        log.info("Successfully added card to blacklist - BIN: {}, Last4: {}, Reason: {}", 
+                cardBin, lastFour, reason);
+        
+        return savedEntry;
     }
     
     public BlacklistEntry addEmailToBlacklist(String email, BlacklistEntry.BlacklistReason reason, 
@@ -189,13 +234,6 @@ public class BlacklistService {
                             description, addedBy, null, null);
     }
     
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 8) {
-            return "****";
-        }
-        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
-    }
-    
     private String getCardBin(String cardNumber) {
         if (cardNumber == null || cardNumber.length() < 6) {
             return "UNKNOWN";
@@ -203,12 +241,21 @@ public class BlacklistService {
         return cardNumber.substring(0, 6);
     }
     
+    private String getLastFourDigits(String cardNumber) {
+        if (cardNumber == null || cardNumber.length() < 4) {
+            return "UNKNOWN";
+        }
+        return cardNumber.substring(cardNumber.length() - 4);
+    }
+    
     private String maskValue(BlacklistEntry.BlacklistType type, String value) {
         if (value == null) return "null";
         
         switch (type) {
-            case CARD_NUMBER:
-                return maskCardNumber(value);
+            case CARD_BIN_LAST4:
+                return "BIN+Last4"; // No sensitive data to mask
+            case CARD_BIN:
+                return value; // BIN is not sensitive
             case EMAIL:
                 if (value.contains("@")) {
                     String[] parts = value.split("@");

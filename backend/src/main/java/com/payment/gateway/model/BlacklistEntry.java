@@ -25,7 +25,14 @@ public class BlacklistEntry {
     private BlacklistType type;
     
     @Column(nullable = false)
-    private String value; // Card number, IP, email, etc.
+    private String value; // IP, email, device ID, etc. (NOT full card number)
+    
+    // PCI DSS Compliant card fields - only store BIN + Last4
+    @Column(name = "card_bin", length = 6)
+    private String cardBin; // First 6 digits (e.g., "411111")
+    
+    @Column(name = "last_four_digits", length = 4)
+    private String lastFourDigits; // Last 4 digits (e.g., "1111")
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -55,13 +62,13 @@ public class BlacklistEntry {
     private LocalDateTime updatedAt;
     
     public enum BlacklistType {
-        CARD_NUMBER,        // Full or partial card number
-        CARD_BIN,          // Card BIN (first 6 digits)
-        EMAIL,             // Email address
-        IP_ADDRESS,        // IP address
-        PHONE,             // Phone number
-        DEVICE_ID,         // Device fingerprint
-        USER_AGENT         // Browser user agent
+        CARD_BIN_LAST4,       // BIN + Last4 combination (PCI DSS compliant)
+        CARD_BIN,             // Card BIN only (first 6 digits)
+        EMAIL,                // Email address
+        IP_ADDRESS,           // IP address
+        PHONE,                // Phone number
+        DEVICE_ID,            // Device fingerprint
+        USER_AGENT            // Browser user agent
     }
     
     public enum BlacklistReason {

@@ -193,4 +193,121 @@ public class BlacklistController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+    
+    /**
+     * Kart blacklist'e ekle (PCI DSS compliant - sadece BIN + Last4)
+     */
+    @PostMapping("/add-card")
+    public ResponseEntity<Map<String, Object>> addCardToBlacklist(@RequestBody Map<String, Object> request) {
+        try {
+            String cardNumber = (String) request.get("cardNumber");
+            BlacklistEntry.BlacklistReason reason = BlacklistEntry.BlacklistReason.valueOf((String) request.get("reason"));
+            String description = (String) request.get("description");
+            String addedBy = (String) request.get("addedBy");
+            
+            if (cardNumber == null || cardNumber.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Card number is required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            BlacklistEntry entry = blacklistService.addCardToBlacklist(cardNumber, reason, description, addedBy);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Card successfully added to blacklist");
+            response.put("entry", Map.of(
+                    "id", entry.getId(),
+                    "cardBin", entry.getCardBin(),
+                    "lastFourDigits", entry.getLastFourDigits(),
+                    "reason", entry.getReason(),
+                    "description", entry.getDescription(),
+                    "createdAt", entry.getCreatedAt()
+            ));
+            
+            log.info("Card added to blacklist - BIN: {}, Last4: {}, Reason: {}", 
+                    entry.getCardBin(), entry.getLastFourDigits(), reason);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid blacklist reason: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Invalid reason. Valid values: " + java.util.Arrays.toString(BlacklistEntry.BlacklistReason.values()));
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            log.error("Error adding card to blacklist: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to add card to blacklist: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+    
+    /**
+     * Kart blacklist'ten kaldır (PCI DSS compliant - BIN + Last4 ile)
+     */
+    @DeleteMapping("/remove-card")
+    public ResponseEntity<Map<String, Object>> removeCardFromBlacklist(@RequestBody Map<String, String> request) {
+        try {
+            String cardBin = request.get("cardBin");
+            String lastFour = request.get("lastFour");
+            
+            if (cardBin == null || cardBin.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Card BIN is required (first 6 digits)");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            if (lastFour == null || lastFour.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Last four digits are required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            if (cardBin.length() != 6) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Card BIN must be exactly 6 digits");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            if (lastFour.length() != 4) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Last four digits must be exactly 4 digits");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            boolean removed = blacklistService.removeCardFromBlacklist(cardBin, lastFour);
+            
+            Map<String, Object> response = new HashMap<>();
+            if (removed) {
+                response.put("success", true);
+                response.put("message", "Card successfully removed from blacklist");
+                response.put("removedCard", Map.of(
+                        "cardBin", cardBin,
+                        "lastFour", lastFour
+                ));
+                
+                log.info("Card removed from blacklist - BIN: {}, Last4: {}", cardBin, lastFour);
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("success", false);
+                response.put("message", "Card not found in blacklist or already inactive");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error removing card from blacklist: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to remove card from blacklist: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
 }

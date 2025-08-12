@@ -28,6 +28,11 @@ public interface BlacklistRepository extends JpaRepository<BlacklistEntry, Long>
                                            @Param("value") String value, 
                                            @Param("now") LocalDateTime now);
     
+    @Query("SELECT b FROM BlacklistEntry b WHERE b.type = 'CARD_BIN_LAST4' AND b.cardBin = :cardBin AND b.lastFourDigits = :lastFour AND b.isActive = true AND (b.expiresAt IS NULL OR b.expiresAt > :now)")
+    Optional<BlacklistEntry> findActiveCardBinLast4Entry(@Param("cardBin") String cardBin, 
+                                                        @Param("lastFour") String lastFour, 
+                                                        @Param("now") LocalDateTime now);
+    
     @Query("SELECT b FROM BlacklistEntry b WHERE b.type = 'CARD_BIN' AND :cardNumber LIKE CONCAT(b.value, '%') AND b.isActive = true AND (b.expiresAt IS NULL OR b.expiresAt > :now)")
     List<BlacklistEntry> findMatchingCardBins(@Param("cardNumber") String cardNumber, @Param("now") LocalDateTime now);
     
