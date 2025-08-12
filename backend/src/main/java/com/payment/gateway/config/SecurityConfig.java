@@ -19,24 +19,17 @@ public class SecurityConfig {
             .cors(cors -> cors.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                // Public endpoints
-                .requestMatchers("/health", "/actuator/**").permitAll()
-                .requestMatchers("/v1/payments/**").permitAll()  // Ödeme endpoint'leri public
-                .requestMatchers("/v1/customers/**").permitAll()  // Customer endpoint'leri public
-                .requestMatchers("/v1/mandates/**").permitAll()   // Mandate endpoint'leri public
-                .requestMatchers("/v1/refunds/**").permitAll()    // Refund endpoint'leri public
-                .requestMatchers("/v1/disputes/**").permitAll()   // Dispute endpoint'leri public
-                .requestMatchers("/v1/payouts/**").permitAll()    // Payout endpoint'leri public
-                .requestMatchers("/v1/webhooks/**").permitAll()   // Webhook endpoint'leri public
-                .requestMatchers("/v1/3dsecure/**").permitAll()   // 3D Secure endpoint'leri public
-                .requestMatchers("/v1/blacklist/**").permitAll()  // Blacklist endpoint'leri public
-                .requestMatchers("/bank-webhooks/**").permitAll() // Bank webhook'ları public
-                .requestMatchers("/mock/**").permitAll()          // Mock endpoint'leri public
-                .requestMatchers("/auth/**").permitAll()          // Auth endpoint'leri public
-                .requestMatchers("/public/**").permitAll()        // Public endpoint'ler
+                // Public endpoints - Allow all for testing
+                .requestMatchers("/api/v1/blacklist/**").permitAll() // Blacklist endpoint'leri public
+                .requestMatchers("/api/v1/payments/**").permitAll()  // Payment endpoint'leri public  
+                .requestMatchers("/bank-webhooks/**").permitAll()    // Bank webhook'ları public
+                .requestMatchers("/mock/**").permitAll()             // Mock endpoint'leri public
+                .requestMatchers("/auth/**").permitAll()             // Auth endpoint'leri public
+                .requestMatchers("/public/**").permitAll()           // Public endpoint'ler
+                .requestMatchers("/api/**").permitAll()              // Tüm API endpoint'leri public
                 
-                // All other requests require authentication
-                .anyRequest().authenticated()
+                // All other requests
+                .anyRequest().permitAll()
             );
 
         return http.build();

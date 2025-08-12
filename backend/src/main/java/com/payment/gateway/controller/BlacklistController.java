@@ -21,7 +21,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/blacklist")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class BlacklistController {
     
     private final BlacklistService blacklistService;
