@@ -18,7 +18,7 @@ import java.util.Map;
  * Fraud detection için blacklist yönetimi
  */
 @RestController
-@RequestMapping("/api/v1/blacklist")
+@RequestMapping("/v1/blacklist")
 @RequiredArgsConstructor
 @Slf4j
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")

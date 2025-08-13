@@ -18,6 +18,7 @@ import java.util.Optional;
 public class BlacklistService {
     
     private final BlacklistRepository blacklistRepository;
+    private final AuditService auditService;
     
     public boolean isBlacklisted(PaymentRequest request) {
         log.debug("Checking blacklist for payment request");
@@ -106,6 +107,10 @@ public class BlacklistService {
         
         BlacklistEntry savedEntry = blacklistRepository.save(entry);
         
+        // Audit log
+        auditService.logBlacklist("ADDED", type.name(), maskValue(type, value), 
+                                reason.name(), addedBy, null, savedEntry);
+        
         log.info("Successfully added to blacklist - ID: {}, Type: {}", savedEntry.getId(), type);
         return savedEntry;
     }
@@ -115,8 +120,19 @@ public class BlacklistService {
         Optional<BlacklistEntry> entry = blacklistRepository.findByTypeAndValueAndIsActiveTrue(type, value);
         if (entry.isPresent()) {
             BlacklistEntry blacklistEntry = entry.get();
+            BlacklistEntry oldEntry = new BlacklistEntry();
+            // Copy for audit
+            oldEntry.setId(blacklistEntry.getId());
+            oldEntry.setType(blacklistEntry.getType());
+            oldEntry.setValue(maskValue(type, value)); // Masked for audit
+            oldEntry.setIsActive(blacklistEntry.getIsActive());
+            
             blacklistEntry.setIsActive(false);
             blacklistRepository.save(blacklistEntry);
+            
+            // Audit log
+            auditService.logBlacklist("REMOVED", type.name(), maskValue(type, value), 
+                                    "MANUAL_REMOVAL", "system", oldEntry, blacklistEntry);
             
             log.info("Removed from blacklist - Type: {}, Value: {}", type, maskValue(type, value));
             return true;

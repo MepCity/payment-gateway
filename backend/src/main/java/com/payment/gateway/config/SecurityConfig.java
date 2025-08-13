@@ -20,13 +20,14 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
                 // Public endpoints - Allow all for testing
-                .requestMatchers("/api/v1/blacklist/**").permitAll() // Blacklist endpoint'leri public
-                .requestMatchers("/api/v1/payments/**").permitAll()  // Payment endpoint'leri public  
+                .requestMatchers("/v1/blacklist/**").permitAll() // Blacklist endpoint'leri public
+                .requestMatchers("/v1/payments/**").permitAll()  // Payment endpoint'leri public  
                 .requestMatchers("/bank-webhooks/**").permitAll()    // Bank webhook'ları public
                 .requestMatchers("/mock/**").permitAll()             // Mock endpoint'leri public
                 .requestMatchers("/auth/**").permitAll()             // Auth endpoint'leri public
                 .requestMatchers("/public/**").permitAll()           // Public endpoint'ler
-                .requestMatchers("/api/**").permitAll()              // Tüm API endpoint'leri public
+                .requestMatchers("/actuator/**").permitAll()         // Actuator endpoint'leri public
+                .requestMatchers("/**").permitAll()                  // Tüm endpoint'ler public (test için)
                 
                 // All other requests
                 .anyRequest().permitAll()
