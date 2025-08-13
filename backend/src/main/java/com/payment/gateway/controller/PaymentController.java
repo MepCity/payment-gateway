@@ -54,7 +54,7 @@ public class PaymentController {
         
         // 2. API Key ve Merchant ID eşleşmesi kontrolü
         if (!merchantAuthService.validateMerchantAccess(apiKey, request.getMerchantId())) {
-            log.warn("🚫 API key ve merchant ID uyumsuzluğu - API: {}, Merchant: {}", 
+            log.warn("🚫 API key ve merchant ID uyumsuzluğu - API: {}, Merchant: {}",
                 apiKey, request.getMerchantId());
             PaymentResponse errorResponse = new PaymentResponse();
             errorResponse.setSuccess(false);

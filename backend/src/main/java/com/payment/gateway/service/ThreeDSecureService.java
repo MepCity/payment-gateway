@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class ThreeDSecureService {
     
     private final BankAdapterRegistry bankAdapterRegistry;
+    private final AuditService auditService;
     
     @Value("${app.payment.gateway.base-url:http://localhost:8080}")
     private String baseUrl;
@@ -57,6 +60,20 @@ public class ThreeDSecureService {
             
             // 3. Seçilen adapter ile 3D Secure başlat
             ThreeDSecureResponse response = adapter.initiate3DSecure(paymentRequest, threeDRequest);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("THREE_D_SECURE_INITIATED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("INITIATE")
+                .resourceType("PAYMENT")
+                .resourceId("3DS-" + UUID.randomUUID().toString().substring(0, 8))
+                .additionalData("bankName", adapter.getBankName())
+                .additionalData("status", response.getStatus().name())
+                .additionalData("success", response.isSuccess())
+                .complianceTag("PCI_DSS")
+                .log();
             
             log.info("3D Secure initiation result - Bank: {}, Status: {}, Success: {}", 
                     adapter.getBankName(), response.getStatus(), response.isSuccess());

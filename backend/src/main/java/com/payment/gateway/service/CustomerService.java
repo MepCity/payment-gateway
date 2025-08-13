@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 public class CustomerService {
     
     private final CustomerRepository customerRepository;
+    private final AuditService auditService;
     
     public CustomerResponse createCustomer(CustomerRequest request) {
         try {
@@ -38,16 +41,28 @@ public class CustomerService {
             customer.setFirstName(request.getFirstName());
             customer.setLastName(request.getLastName());
             customer.setEmail(request.getEmail());
-            customer.setPhoneNumber(request.getPhoneNumber());
-            customer.setAddress(request.getAddress());
-            customer.setCity(request.getCity());
-            customer.setCountry(request.getCountry());
-            customer.setPostalCode(request.getPostalCode());
+            customer.setPhoneNumber(request.getPhone());
+            customer.setAddress(request.getAddress().getStreet());
+            customer.setCity(request.getAddress().getCity());
+            customer.setCountry(request.getAddress().getCountry());
+            customer.setPostalCode(request.getAddress().getPostalCode());
             customer.setStatus(Customer.CustomerStatus.ACTIVE);
             customer.setNotes(request.getNotes());
             
             // Save customer
             Customer savedCustomer = customerRepository.save(customer);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("CUSTOMER_CREATED")
+                .severity(AuditLog.Severity.LOW)
+                .actor("system")
+                .action("CREATE")
+                .resourceType("CUSTOMER")
+                .resourceId(customerId)
+                .newValues(savedCustomer)
+                .complianceTag("GDPR")
+                .log();
             
             log.info("Customer created successfully with ID: {}", customerId);
             
@@ -136,14 +151,27 @@ public class CustomerService {
             customer.setFirstName(request.getFirstName());
             customer.setLastName(request.getLastName());
             customer.setEmail(request.getEmail());
-            customer.setPhoneNumber(request.getPhoneNumber());
-            customer.setAddress(request.getAddress());
-            customer.setCity(request.getCity());
-            customer.setCountry(request.getCountry());
-            customer.setPostalCode(request.getPostalCode());
+            customer.setPhoneNumber(request.getPhone());
+            customer.setAddress(request.getAddress().getStreet());
+            customer.setCity(request.getAddress().getCity());
+            customer.setCountry(request.getAddress().getCountry());
+            customer.setPostalCode(request.getAddress().getPostalCode());
             customer.setNotes(request.getNotes());
             
             Customer updatedCustomer = customerRepository.save(customer);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("CUSTOMER_UPDATED")
+                .severity(AuditLog.Severity.LOW)
+                .actor("system")
+                .action("UPDATE")
+                .resourceType("CUSTOMER")
+                .resourceId(id.toString())
+                .oldValues(customerOpt.get())
+                .newValues(updatedCustomer)
+                .complianceTag("GDPR")
+                .log();
             
             log.info("Customer updated successfully with ID: {}", id);
             return createCustomerResponse(updatedCustomer, "Customer updated successfully", true);
@@ -158,6 +186,20 @@ public class CustomerService {
             Customer customer = customerOpt.get();
             customer.setStatus(newStatus);
             Customer updatedCustomer = customerRepository.save(customer);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("CUSTOMER_STATUS_UPDATED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("UPDATE_STATUS")
+                .resourceType("CUSTOMER")
+                .resourceId(id.toString())
+                .oldValues(customerOpt.get())
+                .newValues(updatedCustomer)
+                .additionalData("newStatus", newStatus.name())
+                .complianceTag("GDPR")
+                .log();
             
             log.info("Customer status updated to {} for ID: {}", newStatus, id);
             return createCustomerResponse(updatedCustomer, "Customer status updated successfully", true);
@@ -174,6 +216,19 @@ public class CustomerService {
             // Soft delete - set status to DELETED
             customer.setStatus(Customer.CustomerStatus.DELETED);
             Customer updatedCustomer = customerRepository.save(customer);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("CUSTOMER_DELETED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("DELETE")
+                .resourceType("CUSTOMER")
+                .resourceId(id.toString())
+                .oldValues(customerOpt.get())
+                .newValues(updatedCustomer)
+                .complianceTag("GDPR")
+                .log();
             
             log.info("Customer deleted successfully with ID: {}", id);
             return createCustomerResponse(updatedCustomer, "Customer deleted successfully", true);

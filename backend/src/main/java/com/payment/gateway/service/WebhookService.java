@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.ResourceAccessException;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -38,6 +40,7 @@ public class WebhookService {
     private final WebhookDeliveryRepository webhookDeliveryRepository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final AuditService auditService;
     
     public WebhookResponse createWebhook(WebhookRequest request) {
         try {
@@ -68,6 +71,21 @@ public class WebhookService {
             
             // Save to database
             Webhook savedWebhook = webhookRepository.save(webhook);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("WEBHOOK_CREATED")
+                .severity(AuditLog.Severity.LOW)
+                .actor("system")
+                .action("CREATE")
+                .resourceType("WEBHOOK")
+                .resourceId(webhookId)
+                .newValues(savedWebhook)
+                .additionalData("merchantId", request.getMerchantId())
+                .additionalData("eventType", request.getEventType())
+                .additionalData("url", request.getUrl())
+                .complianceTag("PCI_DSS")
+                .log();
             
             log.info("Webhook created successfully with ID: {}", webhookId);
             return createWebhookResponse(savedWebhook, true, "Webhook created successfully");

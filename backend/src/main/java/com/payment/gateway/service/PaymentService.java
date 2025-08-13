@@ -27,11 +27,7 @@ public class PaymentService {
     private final RiskAssessmentService riskAssessmentService;
     private final AuditService auditService;
     
-    @Transactional(noRollbackFor = DataIntegrityViolationException.class)
-    public PaymentResponse createPayment(PaymentRequest request) {
-        return createPayment(request, null, null);
-    }
-    
+
     @Transactional(noRollbackFor = DataIntegrityViolationException.class)
     public PaymentResponse createPayment(PaymentRequest request, String ipAddress, String userAgent) {
         

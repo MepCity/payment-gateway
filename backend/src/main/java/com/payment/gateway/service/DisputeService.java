@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.stream.Collectors;
 public class DisputeService {
     
     private final DisputeRepository disputeRepository;
+    private final AuditService auditService;
     
     public DisputeResponse createDispute(DisputeRequest request) {
         try {
@@ -49,6 +52,20 @@ public class DisputeService {
             
             // Save dispute
             Dispute savedDispute = disputeRepository.save(dispute);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("DISPUTE_CREATED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("CREATE")
+                .resourceType("DISPUTE")
+                .resourceId(disputeId)
+                .newValues(savedDispute)
+                .additionalData("paymentId", request.getPaymentId())
+                .additionalData("merchantId", request.getMerchantId())
+                .complianceTag("PCI_DSS")
+                .log();
             
             log.info("Dispute created successfully with ID: {}", disputeId);
             

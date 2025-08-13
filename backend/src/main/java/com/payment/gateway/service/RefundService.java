@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.stream.Collectors;
 public class RefundService {
     
     private final RefundRepository refundRepository;
+    private final AuditService auditService;
     
     public RefundResponse createRefund(RefundRequest request) {
         try {
@@ -48,6 +51,21 @@ public class RefundService {
             
             // Save refund
             Refund savedRefund = refundRepository.save(refund);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("REFUND_CREATED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("CREATE")
+                .resourceType("REFUND")
+                .resourceId(refundId)
+                .newValues(savedRefund)
+                .additionalData("paymentId", request.getPaymentId())
+                .additionalData("merchantId", request.getMerchantId())
+                .additionalData("amount", request.getAmount().toString())
+                .complianceTag("PCI_DSS")
+                .log();
             
             log.info("Refund created successfully with ID: {}", refundId);
             

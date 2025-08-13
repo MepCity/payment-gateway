@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,6 +22,7 @@ import java.util.UUID;
 public class VelocityCheckService {
     
     private final VelocityCheckRepository velocityCheckRepository;
+    private final AuditService auditService;
     
     // Configurable limits
     @Value("${app.fraud.velocity.card.transactions.per.minute:5}")
@@ -69,6 +72,22 @@ public class VelocityCheckService {
         
         // Check merchant-based velocity limits
         limitExceeded |= checkMerchantVelocity(request.getMerchantId());
+        
+        // Audit logging for velocity check
+        auditService.createEvent()
+            .eventType("VELOCITY_CHECK_PERFORMED")
+            .severity(limitExceeded ? AuditLog.Severity.HIGH : AuditLog.Severity.LOW)
+            .actor("fraud-engine")
+            .action("CHECK")
+            .resourceType("PAYMENT")
+            .resourceId("VEL-" + UUID.randomUUID().toString().substring(0, 8))
+            .additionalData("limitExceeded", limitExceeded)
+            .additionalData("cardNumber", maskCardNumber(request.getCardNumber()))
+            .additionalData("ipAddress", ipAddress)
+            .additionalData("customerId", request.getCustomerId())
+            .additionalData("merchantId", request.getMerchantId())
+            .complianceTag("PCI_DSS")
+            .log();
         
         log.info("Velocity check result for payment - Card: {}, Limit exceeded: {}", 
                 maskCardNumber(request.getCardNumber()), limitExceeded);

@@ -5,6 +5,8 @@ import com.payment.gateway.repository.MerchantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.util.Optional;
 
@@ -14,6 +16,7 @@ import java.util.Optional;
 public class MerchantAuthService {
     
     private final MerchantRepository merchantRepository;
+    private final AuditService auditService;
     
     /**
      * API key ile merchant doğrulama
@@ -27,15 +30,53 @@ public class MerchantAuthService {
         Optional<Merchant> merchant = merchantRepository.findByApiKey(apiKey);
         
         if (merchant.isEmpty()) {
+            // Audit logging for invalid API key
+            auditService.createEvent()
+                .eventType("API_KEY_VALIDATION_FAILED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("VALIDATE")
+                .resourceType("MERCHANT")
+                .resourceId("API-" + apiKey.substring(0, Math.min(8, apiKey.length())))
+                .additionalData("reason", "INVALID_API_KEY")
+                .additionalData("apiKey", apiKey.substring(0, Math.min(8, apiKey.length())) + "...")
+                .complianceTag("PCI_DSS")
+                .log();
+            
             log.warn("🚫 Geçersiz API key: {}", apiKey);
             return false;
         }
         
         if (merchant.get().getStatus() != Merchant.MerchantStatus.ACTIVE) {
+            // Audit logging for inactive merchant
+            auditService.createEvent()
+                .eventType("API_KEY_VALIDATION_FAILED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("VALIDATE")
+                .resourceType("MERCHANT")
+                .resourceId(merchant.get().getMerchantId())
+                .additionalData("reason", "INACTIVE_MERCHANT")
+                .additionalData("status", merchant.get().getStatus().name())
+                .complianceTag("PCI_DSS")
+                .log();
+            
             log.warn("🚫 Pasif merchant'tan istek: {} - Status: {}", 
                 merchant.get().getMerchantId(), merchant.get().getStatus());
             return false;
         }
+        
+        // Audit logging for successful validation
+        auditService.createEvent()
+            .eventType("API_KEY_VALIDATION_SUCCESS")
+            .severity(AuditLog.Severity.LOW)
+            .actor("system")
+            .action("VALIDATE")
+            .resourceType("MERCHANT")
+            .resourceId(merchant.get().getMerchantId())
+            .additionalData("apiKey", apiKey.substring(0, Math.min(8, apiKey.length())) + "...")
+            .complianceTag("PCI_DSS")
+            .log();
         
         log.info("✅ Geçerli API key - Merchant: {}", merchant.get().getMerchantId());
         return true;
@@ -73,6 +114,20 @@ public class MerchantAuthService {
      */
     public String generateApiKey(String merchantId) {
         // Production'da güvenli rastgele string üretilmeli
-        return "pk_" + merchantId.toLowerCase() + "_" + System.currentTimeMillis();
+        String apiKey = "pk_" + merchantId.toLowerCase() + "_" + System.currentTimeMillis();
+        
+        // Audit logging for API key generation
+        auditService.createEvent()
+            .eventType("API_KEY_GENERATED")
+            .severity(AuditLog.Severity.MEDIUM)
+            .actor("system")
+            .action("GENERATE")
+            .resourceType("MERCHANT")
+            .resourceId(merchantId)
+            .additionalData("apiKey", apiKey.substring(0, Math.min(8, apiKey.length())) + "...")
+            .complianceTag("PCI_DSS")
+            .log();
+        
+        return apiKey;
     }
 }

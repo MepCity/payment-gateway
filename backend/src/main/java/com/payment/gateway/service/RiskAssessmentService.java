@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,6 +26,7 @@ public class RiskAssessmentService {
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final VelocityCheckService velocityCheckService;
     private final BlacklistService blacklistService;
+    private final AuditService auditService;
     
     @Transactional
     public RiskAssessment assessPaymentRisk(PaymentRequest request, Payment payment, String ipAddress, String userAgent) {
@@ -98,6 +101,22 @@ public class RiskAssessmentService {
         assessment.setRecommendation(generateRecommendation(assessment));
         
         RiskAssessment savedAssessment = riskAssessmentRepository.save(assessment);
+        
+        // Audit logging
+        auditService.createEvent()
+            .eventType("RISK_ASSESSMENT_PERFORMED")
+            .severity(mapRiskLevelToSeverity(assessment.getRiskLevel()))
+            .actor("fraud-engine")
+            .action("ASSESS")
+            .resourceType("PAYMENT")
+            .resourceId(payment.getPaymentId())
+            .newValues(savedAssessment)
+            .additionalData("riskLevel", assessment.getRiskLevel())
+            .additionalData("riskScore", assessment.getRiskScore().toString())
+            .additionalData("riskFactors", assessment.getRiskFactors())
+            .additionalData("action", assessment.getAction())
+            .complianceTag("PCI_DSS")
+            .log();
         
         log.info("Risk assessment completed for payment: {} - Risk Level: {}, Score: {}", 
                 payment.getPaymentId(), assessment.getRiskLevel(), assessment.getRiskScore());
@@ -176,6 +195,15 @@ public class RiskAssessmentService {
         // - Distance from merchant location
         
         return BigDecimal.valueOf(2); // Default minimal risk
+    }
+    
+    private AuditLog.Severity mapRiskLevelToSeverity(RiskAssessment.RiskLevel riskLevel) {
+        return switch (riskLevel) {
+            case CRITICAL -> AuditLog.Severity.CRITICAL;
+            case HIGH -> AuditLog.Severity.HIGH;
+            case MEDIUM -> AuditLog.Severity.MEDIUM;
+            case LOW -> AuditLog.Severity.LOW;
+        };
     }
     
     private RiskAssessment.RiskLevel determineRiskLevel(BigDecimal riskScore) {
