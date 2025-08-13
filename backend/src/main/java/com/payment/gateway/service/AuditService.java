@@ -64,6 +64,7 @@ public class AuditService {
                    .requestMethod(context.requestMethod)
                    .requestUri(context.requestUri)
                    .countryCode(context.countryCode)
+                   .regionName(context.regionName) // KVKK/GDPR: Only region, not exact city
                    .deviceFingerprint(context.deviceFingerprint)
                    .apiKey(context.apiKey)
                    .correlationId(context.correlationId)
@@ -220,7 +221,7 @@ public class AuditService {
         private String requestUri;
         private String httpStatus;
         private String countryCode;
-        private String cityName;
+        private String regionName; // KVKK/GDPR: Only region name, not exact city
         private String deviceFingerprint;
         private String browserName;
         private String browserVersion;
@@ -315,8 +316,8 @@ public class AuditService {
             return this;
         }
         
-        public AuditEventBuilder cityName(String cityName) {
-            this.cityName = cityName;
+        public AuditEventBuilder regionName(String regionName) {
+            this.regionName = regionName;
             return this;
         }
         
@@ -438,7 +439,7 @@ public class AuditService {
                 .requestUri(requestUri)
                 .httpStatus(httpStatus)
                 .countryCode(countryCode)
-                .cityName(cityName)
+                .regionName(regionName) // KVKK/GDPR: Only region, not exact city
                 .deviceFingerprint(deviceFingerprint)
                 .browserName(browserName)
                 .browserVersion(browserVersion)

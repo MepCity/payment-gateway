@@ -109,7 +109,7 @@ public class BlacklistService {
         
         // Audit log
         auditService.logBlacklist("ADDED", type.name(), maskValue(type, value), 
-                                reason.name(), addedBy, null, savedEntry);
+                                reason.name(), "api-user", null, savedEntry);
         
         log.info("Successfully added to blacklist - ID: {}, Type: {}", savedEntry.getId(), type);
         return savedEntry;

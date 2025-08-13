@@ -1,6 +1,7 @@
 package com.payment.gateway.service;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -16,8 +17,11 @@ import java.util.regex.Pattern;
  * Gerçek banka sistemlerinde kullanılan audit detayları
  */
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class RequestContextService {
+    
+    private final GeoLocationService geoLocationService;
     
     /**
      * Mevcut HTTP request'ten audit için gerekli bilgileri çıkarır
@@ -30,13 +34,24 @@ public class RequestContextService {
             }
             
             HttpServletRequest request = attributes.getRequest();
+            String clientIP = extractClientIpAddress(request);
+            
+            // Gerçek GeoLocation verisi al
+            GeoLocationService.GeoLocation geoData = geoLocationService.getLocationSync(clientIP);
+            
             return AuditRequestContext.builder()
-                .ipAddress(extractClientIpAddress(request))
+                .ipAddress(clientIP)
                 .userAgent(request.getHeader("User-Agent"))
                 .sessionId(request.getSession(false) != null ? request.getSession().getId() : null)
                 .requestMethod(request.getMethod())
                 .requestUri(request.getRequestURI())
-                .countryCode(extractCountryFromIP(extractClientIpAddress(request)))
+                .countryCode(geoData.getCountryCode())
+                .countryName(geoData.getCountryName())
+                .regionName(geoData.getRegionName()) // KVKK/GDPR: Only region, not exact city
+                .timezone(geoData.getTimezone())
+                .isp(geoData.getIsp())
+                .riskScore(geoData.getRiskScore())
+                .riskLevel(geoData.getRiskLevel())
                 .browserInfo(extractBrowserInfo(request.getHeader("User-Agent")))
                 .deviceFingerprint(generateDeviceFingerprint(request))
                 .apiKey(maskApiKey(request.getHeader("X-API-Key")))
@@ -66,25 +81,6 @@ public class RequestContextService {
         }
         
         return request.getRemoteAddr();
-    }
-    
-    /**
-     * IP adresinden ülke kodunu çıkarır (basit implementasyon)
-     * Gerçek sistemlerde GeoIP database kullanılır
-     */
-    private String extractCountryFromIP(String ipAddress) {
-        if (ipAddress == null) return "UNKNOWN";
-        
-        // Localhost/private IP kontrolü
-        if (ipAddress.equals("127.0.0.1") || ipAddress.equals("0:0:0:0:0:0:0:1") || 
-            ipAddress.startsWith("192.168.") || ipAddress.startsWith("10.") || 
-            ipAddress.startsWith("172.")) {
-            return "LOCAL";
-        }
-        
-        // Gerçek implementasyonda MaxMind GeoIP2 veya benzeri kullanılır
-        // Şimdilik basit mock
-        return "TR"; // Default Turkey
     }
     
     /**
@@ -243,7 +239,7 @@ public class RequestContextService {
     }
     
     /**
-     * Request context bilgilerini tutar
+     * Request context bilgilerini tutar - KVKK/GDPR Compliant
      */
     public static class AuditRequestContext {
         public final String ipAddress;
@@ -252,6 +248,12 @@ public class RequestContextService {
         public final String requestMethod;
         public final String requestUri;
         public final String countryCode;
+        public final String countryName;
+        public final String regionName; // KVKK/GDPR: Only region, not exact city/coordinates
+        public final String timezone;
+        public final String isp;
+        public final Double riskScore;
+        public final String riskLevel;
         public final BrowserInfo browserInfo;
         public final String deviceFingerprint;
         public final String apiKey;
@@ -266,6 +268,12 @@ public class RequestContextService {
             this.requestMethod = builder.requestMethod;
             this.requestUri = builder.requestUri;
             this.countryCode = builder.countryCode;
+            this.countryName = builder.countryName;
+            this.regionName = builder.regionName;
+            this.timezone = builder.timezone;
+            this.isp = builder.isp;
+            this.riskScore = builder.riskScore;
+            this.riskLevel = builder.riskLevel;
             this.browserInfo = builder.browserInfo;
             this.deviceFingerprint = builder.deviceFingerprint;
             this.apiKey = builder.apiKey;
@@ -285,6 +293,12 @@ public class RequestContextService {
             private String requestMethod;
             private String requestUri;
             private String countryCode;
+            private String countryName;
+            private String regionName; // KVKK/GDPR: Only region name, not exact location
+            private String timezone;
+            private String isp;
+            private Double riskScore;
+            private String riskLevel;
             private BrowserInfo browserInfo;
             private String deviceFingerprint;
             private String apiKey;
@@ -298,6 +312,12 @@ public class RequestContextService {
             public Builder requestMethod(String requestMethod) { this.requestMethod = requestMethod; return this; }
             public Builder requestUri(String requestUri) { this.requestUri = requestUri; return this; }
             public Builder countryCode(String countryCode) { this.countryCode = countryCode; return this; }
+            public Builder countryName(String countryName) { this.countryName = countryName; return this; }
+            public Builder regionName(String regionName) { this.regionName = regionName; return this; }
+            public Builder timezone(String timezone) { this.timezone = timezone; return this; }
+            public Builder isp(String isp) { this.isp = isp; return this; }
+            public Builder riskScore(Double riskScore) { this.riskScore = riskScore; return this; }
+            public Builder riskLevel(String riskLevel) { this.riskLevel = riskLevel; return this; }
             public Builder browserInfo(BrowserInfo browserInfo) { this.browserInfo = browserInfo; return this; }
             public Builder deviceFingerprint(String deviceFingerprint) { this.deviceFingerprint = deviceFingerprint; return this; }
             public Builder apiKey(String apiKey) { this.apiKey = apiKey; return this; }

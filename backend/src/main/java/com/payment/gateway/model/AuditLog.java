@@ -76,7 +76,10 @@ public class AuditLog {
     private String countryCode; // TR, US, etc. (from IP geolocation)
     
     @Column(length = 100)
-    private String cityName; // Istanbul, New York, etc.
+    private String regionName; // Marmara, California, etc. (region level only for privacy)
+    
+    // KVKK/GDPR Note: City data is anonymized to region level
+    // No exact coordinates stored to protect user privacy
     
     @Column(length = 200)
     private String deviceFingerprint; // Unique device identifier
