@@ -111,23 +111,6 @@ public class BlacklistService {
     }
     
     @Transactional
-    public boolean removeFromBlacklist(Long id) {
-        Optional<BlacklistEntry> entry = blacklistRepository.findById(id);
-        if (entry.isPresent()) {
-            BlacklistEntry blacklistEntry = entry.get();
-            blacklistEntry.setIsActive(false);
-            blacklistRepository.save(blacklistEntry);
-            
-            log.info("Removed from blacklist - ID: {}, Type: {}, Value: {}", 
-                    id, blacklistEntry.getType(), maskValue(blacklistEntry.getType(), blacklistEntry.getValue()));
-            return true;
-        }
-        
-        log.warn("Blacklist entry not found for removal - ID: {}", id);
-        return false;
-    }
-    
-    @Transactional
     public boolean removeFromBlacklist(BlacklistEntry.BlacklistType type, String value) {
         Optional<BlacklistEntry> entry = blacklistRepository.findByTypeAndValueAndIsActiveTrue(type, value);
         if (entry.isPresent()) {

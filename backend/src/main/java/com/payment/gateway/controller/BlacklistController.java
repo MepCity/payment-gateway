@@ -65,22 +65,55 @@ public class BlacklistController {
     }
     
     /**
-     * Blacklist'ten entry kaldır
+     * Blacklist'ten entry kaldır (Business logic based - ID yerine type+value ile)
      */
-    @DeleteMapping("/remove/{id}")
-    public ResponseEntity<Map<String, Object>> removeFromBlacklist(@PathVariable Long id) {
+    @DeleteMapping("/remove")
+    public ResponseEntity<Map<String, Object>> removeFromBlacklist(@RequestBody Map<String, String> request) {
         try {
-            boolean removed = blacklistService.removeFromBlacklist(id);
+            String typeStr = request.get("type");
+            String value = request.get("value");
+            
+            if (typeStr == null || typeStr.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Blacklist type is required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            if (value == null || value.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Value is required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            BlacklistEntry.BlacklistType type;
+            try {
+                type = BlacklistEntry.BlacklistType.valueOf(typeStr);
+            } catch (IllegalArgumentException e) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Invalid blacklist type. Valid values: " + 
+                        java.util.Arrays.toString(BlacklistEntry.BlacklistType.values()));
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            boolean removed = blacklistService.removeFromBlacklist(type, value);
             
             Map<String, Object> response = new HashMap<>();
             if (removed) {
                 response.put("success", true);
                 response.put("message", "Successfully removed from blacklist");
-                log.info("Removed from blacklist - ID: {}", id);
+                response.put("removedEntry", Map.of(
+                        "type", type,
+                        "value", value
+                ));
+                
+                log.info("Removed from blacklist - Type: {}, Value: {}", type, value);
                 return ResponseEntity.ok(response);
             } else {
                 response.put("success", false);
-                response.put("message", "Blacklist entry not found");
+                response.put("message", "Blacklist entry not found or already inactive");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
             }
             
@@ -92,6 +125,8 @@ public class BlacklistController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+    
+
     
     /**
      * Type'a göre blacklist entries getir
