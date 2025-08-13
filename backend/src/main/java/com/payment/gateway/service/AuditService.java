@@ -20,6 +20,7 @@ public class AuditService {
     
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
+    private final RequestContextService requestContextService;
     
     /**
      * Asynchronously log an audit event
@@ -48,10 +49,38 @@ public class AuditService {
     }
     
     /**
-     * Create audit event builder
+     * Create audit event builder with automatic request context injection
      */
     public AuditEventBuilder createEvent() {
-        return new AuditEventBuilder(this);
+        AuditEventBuilder builder = new AuditEventBuilder(this);
+        
+        // Otomatik olarak request context bilgilerini ekle
+        try {
+            RequestContextService.AuditRequestContext context = requestContextService.extractRequestContext();
+            
+            builder.ipAddress(context.ipAddress)
+                   .userAgent(context.userAgent)
+                   .sessionId(context.sessionId)
+                   .requestMethod(context.requestMethod)
+                   .requestUri(context.requestUri)
+                   .countryCode(context.countryCode)
+                   .deviceFingerprint(context.deviceFingerprint)
+                   .apiKey(context.apiKey)
+                   .correlationId(context.correlationId)
+                   .requestHeaders(context.requestHeaders)
+                   .requestSizeBytes(context.requestSizeBytes);
+                   
+            if (context.browserInfo != null) {
+                builder.browserName(context.browserInfo.name)
+                       .browserVersion(context.browserInfo.version)
+                       .operatingSystem(context.browserInfo.operatingSystem);
+            }
+            
+        } catch (Exception e) {
+            log.warn("Failed to extract request context for audit: {}", e.getMessage());
+        }
+        
+        return builder;
     }
     
     /**
@@ -185,6 +214,24 @@ public class AuditService {
         private String ipAddress;
         private String userAgent;
         private String sessionId;
+        
+        // Yeni gelişmiş audit field'ları
+        private String requestMethod;
+        private String requestUri;
+        private String httpStatus;
+        private String countryCode;
+        private String cityName;
+        private String deviceFingerprint;
+        private String browserName;
+        private String browserVersion;
+        private String operatingSystem;
+        private String apiKey;
+        private String correlationId;
+        private String requestHeaders;
+        private Long requestSizeBytes;
+        private Long responseSizeBytes;
+        private Long processingTimeMs;
+        
         private StringBuilder complianceTags = new StringBuilder();
         private StringBuilder additionalData = new StringBuilder("{");
         
@@ -244,6 +291,82 @@ public class AuditService {
         
         public AuditEventBuilder sessionId(String sessionId) {
             this.sessionId = sessionId;
+            return this;
+        }
+        
+        // Yeni gelişmiş audit metodları
+        public AuditEventBuilder requestMethod(String requestMethod) {
+            this.requestMethod = requestMethod;
+            return this;
+        }
+        
+        public AuditEventBuilder requestUri(String requestUri) {
+            this.requestUri = requestUri;
+            return this;
+        }
+        
+        public AuditEventBuilder httpStatus(String httpStatus) {
+            this.httpStatus = httpStatus;
+            return this;
+        }
+        
+        public AuditEventBuilder countryCode(String countryCode) {
+            this.countryCode = countryCode;
+            return this;
+        }
+        
+        public AuditEventBuilder cityName(String cityName) {
+            this.cityName = cityName;
+            return this;
+        }
+        
+        public AuditEventBuilder deviceFingerprint(String deviceFingerprint) {
+            this.deviceFingerprint = deviceFingerprint;
+            return this;
+        }
+        
+        public AuditEventBuilder browserName(String browserName) {
+            this.browserName = browserName;
+            return this;
+        }
+        
+        public AuditEventBuilder browserVersion(String browserVersion) {
+            this.browserVersion = browserVersion;
+            return this;
+        }
+        
+        public AuditEventBuilder operatingSystem(String operatingSystem) {
+            this.operatingSystem = operatingSystem;
+            return this;
+        }
+        
+        public AuditEventBuilder apiKey(String apiKey) {
+            this.apiKey = apiKey;
+            return this;
+        }
+        
+        public AuditEventBuilder correlationId(String correlationId) {
+            this.correlationId = correlationId;
+            return this;
+        }
+        
+        public AuditEventBuilder requestHeaders(String requestHeaders) {
+            this.requestHeaders = requestHeaders;
+            return this;
+        }
+        
+        public AuditEventBuilder requestSizeBytes(Long requestSizeBytes) {
+            this.requestSizeBytes = requestSizeBytes;
+            return this;
+        }
+        
+        public AuditEventBuilder responseSizeBytes(Long responseSizeBytes) {
+            this.responseSizeBytes = responseSizeBytes;
+            return this;
+        }
+        
+        public AuditEventBuilder processingTimeMs(Long processingTimeMs) {
+            this.processingTimeMs = processingTimeMs;
             return this;
         }
         
@@ -311,6 +434,21 @@ public class AuditService {
                 .ipAddress(ipAddress)
                 .userAgent(userAgent)
                 .sessionId(sessionId)
+                .requestMethod(requestMethod)
+                .requestUri(requestUri)
+                .httpStatus(httpStatus)
+                .countryCode(countryCode)
+                .cityName(cityName)
+                .deviceFingerprint(deviceFingerprint)
+                .browserName(browserName)
+                .browserVersion(browserVersion)
+                .operatingSystem(operatingSystem)
+                .apiKey(apiKey)
+                .correlationId(correlationId)
+                .requestHeaders(requestHeaders)
+                .requestSizeBytes(requestSizeBytes)
+                .responseSizeBytes(responseSizeBytes)
+                .processingTimeMs(processingTimeMs)
                 .complianceTags("[" + complianceTags.toString() + "]")
                 .additionalData(additionalData.toString())
                 .build();
