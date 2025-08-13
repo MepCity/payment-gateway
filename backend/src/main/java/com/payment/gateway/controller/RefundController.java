@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/v1/refunds")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class RefundController {
     
     private final RefundService refundService;

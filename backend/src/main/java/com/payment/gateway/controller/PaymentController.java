@@ -27,7 +27,6 @@ import java.util.HashMap;
 @RequestMapping("/v1/payments")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class PaymentController {
     
     private final PaymentService paymentService;

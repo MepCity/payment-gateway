@@ -19,7 +19,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/risk")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class RiskAssessmentController {
     
     private final RiskAssessmentService riskAssessmentService;

@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/v1/disputes")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class DisputeController {
     
     private final DisputeService disputeService;
