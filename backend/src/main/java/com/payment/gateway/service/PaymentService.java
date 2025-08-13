@@ -25,6 +25,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final RealBankIntegrationService realBankIntegrationService;
     private final RiskAssessmentService riskAssessmentService;
+    private final AuditService auditService;
     
     @Transactional(noRollbackFor = DataIntegrityViolationException.class)
     public PaymentResponse createPayment(PaymentRequest request) {
@@ -33,6 +34,24 @@ public class PaymentService {
     
     @Transactional(noRollbackFor = DataIntegrityViolationException.class)
     public PaymentResponse createPayment(PaymentRequest request, String ipAddress, String userAgent) {
+        
+        // Audit log - Payment initiation
+        auditService.logEvent(
+            auditService.createEvent()
+                .eventType("PAYMENT")
+                .action("INITIATE")
+                .actor("api-user")
+                .resourceType("Payment")
+                .resourceId(request.getMerchantId() + "-" + request.getCustomerId())
+                .additionalData("amount", request.getAmount())
+                .additionalData("currency", request.getCurrency())
+                .additionalData("paymentMethod", request.getPaymentMethod())
+                .additionalData("cardLastFour", extractCardLastFour(request.getCardNumber()))
+                .complianceTag("PCI_DSS")
+                .complianceTag("KVKK")
+                .complianceTag("GDPR")
+        );
+        
         try {
             // Generate unique payment ID and transaction ID
             String paymentId = generatePaymentId();
@@ -66,6 +85,22 @@ public class PaymentService {
             RiskAssessment riskAssessment = riskAssessmentService.assessPaymentRisk(
                 request, payment, ipAddress, userAgent);
             
+            // Audit log - Risk Assessment
+            auditService.logEvent(
+                auditService.createEvent()
+                    .eventType("FRAUD_DETECTION")
+                    .action("RISK_ASSESSMENT")
+                    .actor("system")
+                    .resourceType("Payment")
+                    .resourceId(paymentId)
+                    .additionalData("riskLevel", riskAssessment.getRiskLevel().name())
+                    .additionalData("riskScore", riskAssessment.getRiskScore())
+                    .additionalData("action", riskAssessment.getAction().name())
+                    .additionalData("riskFactors", riskAssessment.getRiskFactors())
+                    .complianceTag("PCI_DSS")
+                    .complianceTag("AML")
+            );
+            
             // Check risk assessment result
             if (riskAssessment.getAction() == RiskAssessment.AssessmentAction.DECLINE) {
                 payment.setStatus(Payment.PaymentStatus.FAILED);
@@ -74,6 +109,20 @@ public class PaymentService {
                 
                 log.warn("Payment {} declined due to fraud risk - Risk Level: {}, Score: {}", 
                         paymentId, riskAssessment.getRiskLevel(), riskAssessment.getRiskScore());
+                
+                // Audit log - Payment declined due to fraud
+                auditService.logEvent(
+                    auditService.createEvent()
+                        .eventType("PAYMENT")
+                        .action("DECLINE")
+                        .actor("fraud-system")
+                        .resourceType("Payment")
+                        .resourceId(paymentId)
+                        .additionalData("reason", "HIGH_FRAUD_RISK")
+                        .additionalData("riskScore", riskAssessment.getRiskScore())
+                        .complianceTag("PCI_DSS")
+                        .complianceTag("AML")
+                );
                 
                 return createPaymentResponse(payment, 
                     "Payment declined due to security concerns. Risk Score: " + riskAssessment.getRiskScore(), false);
@@ -116,6 +165,24 @@ public class PaymentService {
             
             // Save final payment status
             payment = paymentRepository.save(payment);
+            
+            // Audit log - Payment completion status
+            auditService.logEvent(
+                auditService.createEvent()
+                    .eventType("PAYMENT")
+                    .action(finalStatus == Payment.PaymentStatus.COMPLETED ? "COMPLETE" : "FAIL")
+                    .actor("system")
+                    .resourceType("Payment")
+                    .resourceId(payment.getPaymentId())
+                    .additionalData("transactionId", payment.getTransactionId())
+                    .additionalData("status", finalStatus.name())
+                    .additionalData("amount", payment.getAmount())
+                    .additionalData("currency", payment.getCurrency())
+                    .additionalData("gatewayResponse", payment.getGatewayResponse())
+                    .complianceTag("PCI_DSS")
+                    .complianceTag("KVKK")
+                    .complianceTag("GDPR")
+            );
             
             return createPaymentResponse(payment, "Payment processed successfully", true);
             
@@ -184,6 +251,7 @@ public class PaymentService {
         Optional<Payment> paymentOpt = paymentRepository.findById(id);
         if (paymentOpt.isPresent()) {
             Payment payment = paymentOpt.get();
+            Payment.PaymentStatus oldStatus = payment.getStatus();
             payment.setStatus(newStatus);
             
             // Set completedAt if status is being changed to COMPLETED
@@ -193,6 +261,21 @@ public class PaymentService {
             
             payment.setGatewayResponse("Status updated to: " + newStatus);
             Payment updatedPayment = paymentRepository.save(payment);
+            
+            // Audit log - Payment status update
+            auditService.logEvent(
+                auditService.createEvent()
+                    .eventType("PAYMENT")
+                    .action("STATUS_UPDATE")
+                    .actor("api-user")
+                    .resourceType("Payment")
+                    .resourceId(payment.getPaymentId())
+                    .additionalData("transactionId", payment.getTransactionId())
+                    .additionalData("oldStatus", oldStatus.name())
+                    .additionalData("newStatus", newStatus.name())
+                    .additionalData("amount", payment.getAmount())
+                    .complianceTag("PCI_DSS")
+            );
             
             log.info("Payment status updated to {} for ID: {}", newStatus, id);
             return createPaymentResponse(updatedPayment, "Payment status updated successfully", true);
@@ -230,6 +313,22 @@ public class PaymentService {
                 payment.setStatus(Payment.PaymentStatus.REFUNDED);
                 payment.setGatewayResponse("Payment refunded");
                 Payment updatedPayment = paymentRepository.save(payment);
+                
+                // Audit log - Payment refund
+                auditService.logEvent(
+                    auditService.createEvent()
+                        .eventType("PAYMENT")
+                        .action("REFUND")
+                        .actor("api-user")
+                        .resourceType("Payment")
+                        .resourceId(payment.getPaymentId())
+                        .additionalData("transactionId", payment.getTransactionId())
+                        .additionalData("amount", payment.getAmount())
+                        .additionalData("currency", payment.getCurrency())
+                        .additionalData("refundReason", "Manual refund request")
+                        .complianceTag("PCI_DSS")
+                        .complianceTag("GDPR")
+                );
                 
                 log.info("Payment refunded successfully with ID: {}", id);
                 return createPaymentResponse(updatedPayment, "Payment refunded successfully", true);
@@ -271,12 +370,41 @@ public class PaymentService {
                 
                 log.info("3D Secure payment completed successfully: {}", paymentId);
                 
+                // Audit log - 3D Secure success
+                auditService.logEvent(
+                    auditService.createEvent()
+                        .eventType("3D_SECURE")
+                        .action("AUTHENTICATION_SUCCESS")
+                        .actor("bank-system")
+                        .resourceType("Payment")
+                        .resourceId(paymentId)
+                        .additionalData("transactionId", payment.getTransactionId())
+                        .additionalData("bankTransactionId", bankTransactionId)
+                        .additionalData("amount", payment.getAmount())
+                        .complianceTag("PCI_DSS")
+                        .complianceTag("3DS")
+                );
+                
             } else {
                 // 3D Secure başarısız
                 payment.setStatus(Payment.PaymentStatus.FAILED);
                 payment.setGatewayResponse("3D Secure authentication failed");
                 
                 log.info("3D Secure payment failed: {}", paymentId);
+                
+                // Audit log - 3D Secure failure
+                auditService.logEvent(
+                    auditService.createEvent()
+                        .eventType("3D_SECURE")
+                        .action("AUTHENTICATION_FAILURE")
+                        .actor("bank-system")
+                        .resourceType("Payment")
+                        .resourceId(paymentId)
+                        .additionalData("transactionId", payment.getTransactionId())
+                        .additionalData("failureReason", "3D Secure authentication failed")
+                        .complianceTag("PCI_DSS")
+                        .complianceTag("3DS")
+                );
             }
             
             payment = paymentRepository.save(payment);
