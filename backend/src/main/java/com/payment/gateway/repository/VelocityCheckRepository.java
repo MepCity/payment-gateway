@@ -21,13 +21,15 @@ public interface VelocityCheckRepository extends JpaRepository<VelocityCheck, Lo
     
     List<VelocityCheck> findByLimitExceededTrue();
     
-    @Query("SELECT COUNT(p) FROM Payment p WHERE p.cardNumber LIKE CONCAT(:cardPrefix, '%') AND p.createdAt >= :since AND p.createdAt <= :until AND p.status != 'FAILED'")
-    long countCardTransactions(@Param("cardPrefix") String cardPrefix, 
+    @Query("SELECT COUNT(p) FROM Payment p WHERE p.cardBin = :cardBin AND p.cardLastFour = :cardLastFour AND p.createdAt >= :since AND p.createdAt <= :until AND p.status != 'FAILED'")
+    long countCardTransactions(@Param("cardBin") String cardBin,
+                              @Param("cardLastFour") String cardLastFour, 
                               @Param("since") LocalDateTime since, 
                               @Param("until") LocalDateTime until);
     
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.cardNumber LIKE CONCAT(:cardPrefix, '%') AND p.createdAt >= :since AND p.createdAt <= :until AND p.status = 'COMPLETED'")
-    BigDecimal sumCardTransactionAmount(@Param("cardPrefix") String cardPrefix, 
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.cardBin = :cardBin AND p.cardLastFour = :cardLastFour AND p.createdAt >= :since AND p.createdAt <= :until AND p.status != 'FAILED'")
+    BigDecimal sumCardTransactionAmount(@Param("cardBin") String cardBin,
+                                       @Param("cardLastFour") String cardLastFour, 
                                        @Param("since") LocalDateTime since, 
                                        @Param("until") LocalDateTime until);
     

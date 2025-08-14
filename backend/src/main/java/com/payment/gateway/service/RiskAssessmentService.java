@@ -126,13 +126,13 @@ public class RiskAssessmentService {
     
     private BigDecimal assessAmountRisk(BigDecimal amount) {
         // Risk increases with amount
-        if (amount.compareTo(BigDecimal.valueOf(10000)) > 0) {
+        if (amount.compareTo(BigDecimal.valueOf(100000)) > 0) {
             return BigDecimal.valueOf(25); // Very high amount
-        } else if (amount.compareTo(BigDecimal.valueOf(5000)) > 0) {
+        } else if (amount.compareTo(BigDecimal.valueOf(50000)) > 0) {
             return BigDecimal.valueOf(20); // High amount
-        } else if (amount.compareTo(BigDecimal.valueOf(1000)) > 0) {
+        } else if (amount.compareTo(BigDecimal.valueOf(10000)) > 0) {
             return BigDecimal.valueOf(10); // Medium amount
-        } else if (amount.compareTo(BigDecimal.valueOf(100)) > 0) {
+        } else if (amount.compareTo(BigDecimal.valueOf(1000)) > 0) {
             return BigDecimal.valueOf(5); // Normal amount
         }
         return BigDecimal.ZERO; // Low amount
@@ -140,7 +140,7 @@ public class RiskAssessmentService {
     
     private BigDecimal assessCardBinRisk(String cardNumber) {
         if (cardNumber == null || cardNumber.length() < 6) {
-            return BigDecimal.valueOf(20); // Unknown BIN is risky
+            return BigDecimal.valueOf(0); // Unknown BIN is risky
         }
         
         String bin = cardNumber.substring(0, 6);

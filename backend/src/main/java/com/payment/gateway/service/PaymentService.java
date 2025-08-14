@@ -25,6 +25,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final RealBankIntegrationService realBankIntegrationService;
     private final RiskAssessmentService riskAssessmentService;
+    private final VelocityCheckService velocityCheckService;
     private final AuditService auditService;
     
 
@@ -76,6 +77,37 @@ public class PaymentService {
             payment = paymentRepository.save(payment);
             log.info("Payment created with ID: {}", paymentId);
             
+            // VELOCITY CHECK - Sert Limit Kontrolü (Hyperswitch/Iyzico tarzı)
+            log.info("Starting velocity check for payment: {}", paymentId);
+            boolean velocityLimitExceeded = velocityCheckService.checkVelocityLimits(request, ipAddress);
+            
+            if (velocityLimitExceeded) {
+                payment.setStatus(Payment.PaymentStatus.FAILED);
+                payment.setGatewayResponse("Payment declined due to velocity limits exceeded - Too many transactions");
+                payment = paymentRepository.save(payment);
+                
+                log.warn("Payment {} HARD DECLINED due to velocity limits - Card: {}", 
+                        paymentId, extractCardLastFour(request.getCardNumber()));
+                
+                // Audit log - Velocity Hard Decline
+                auditService.logEvent(
+                    auditService.createEvent()
+                        .eventType("PAYMENT")
+                        .action("DECLINE")
+                        .actor("velocity-system")
+                        .resourceType("Payment")
+                        .resourceId(paymentId)
+                        .additionalData("reason", "VELOCITY_LIMIT_EXCEEDED")
+                        .additionalData("cardLastFour", extractCardLastFour(request.getCardNumber()))
+                        .additionalData("customerId", request.getCustomerId())
+                        .complianceTag("PCI_DSS")
+                        .complianceTag("FRAUD_PREVENTION")
+                );
+                
+                return createPaymentResponse(payment, 
+                    "Transaction declined - Too many transactions detected. Please wait and try again later.", false);
+            }
+
             // FRAUD DETECTION - Risk Assessment
             log.info("Starting fraud detection for payment: {}", paymentId);
             RiskAssessment riskAssessment = riskAssessmentService.assessPaymentRisk(

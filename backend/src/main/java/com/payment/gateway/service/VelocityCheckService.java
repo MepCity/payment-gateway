@@ -54,12 +54,14 @@ public class VelocityCheckService {
     
     @Transactional
     public boolean checkVelocityLimits(PaymentRequest request, String ipAddress) {
-        log.debug("Checking velocity limits for card: {}, IP: {}", 
-                maskCardNumber(request.getCardNumber()), ipAddress);
+        log.info("🔍 Checking velocity limits for card: {}****{} (Customer: {})", 
+                request.getCardNumber().substring(0, 4), 
+                request.getCardNumber().substring(request.getCardNumber().length() - 4),
+                request.getCustomerId());
         
         boolean limitExceeded = false;
         
-        // Check card-based velocity limits
+        // Check card-based velocity limits (PRIORITY - MOST CRITICAL)
         limitExceeded |= checkCardVelocity(request);
         
         // Check IP-based velocity limits
@@ -89,69 +91,85 @@ public class VelocityCheckService {
             .complianceTag("PCI_DSS")
             .log();
         
-        log.info("Velocity check result for payment - Card: {}, Limit exceeded: {}", 
-                maskCardNumber(request.getCardNumber()), limitExceeded);
+        if (limitExceeded) {
+            log.error("🚨 VELOCITY LIMITS EXCEEDED - PAYMENT WILL BE DECLINED - Card: {}****{}", 
+                    request.getCardNumber().substring(0, 4), 
+                    request.getCardNumber().substring(request.getCardNumber().length() - 4));
+        } else {
+            log.info("✅ Velocity check passed for card: {}****{}", 
+                    request.getCardNumber().substring(0, 4), 
+                    request.getCardNumber().substring(request.getCardNumber().length() - 4));
+        }
         
         return limitExceeded;
     }
     
     private boolean checkCardVelocity(PaymentRequest request) {
-        String cardPrefix = getCardPrefix(request.getCardNumber());
+        String cardBin = request.getCardNumber().substring(0, 6);
+        String cardLastFour = request.getCardNumber().substring(request.getCardNumber().length() - 4);
         boolean limitExceeded = false;
         
         // Check transactions per minute
         LocalDateTime oneMinuteAgo = LocalDateTime.now().minusMinutes(1);
         long transactionsInMinute = velocityCheckRepository.countCardTransactions(
-                cardPrefix, oneMinuteAgo, LocalDateTime.now());
+                cardBin, cardLastFour, oneMinuteAgo, LocalDateTime.now());
         
         if (transactionsInMinute >= cardTransactionsPerMinute) {
             saveVelocityCheck(VelocityCheck.VelocityType.CARD_TRANSACTIONS_PER_MINUTE, 
-                            cardPrefix, null, (int) transactionsInMinute, BigDecimal.ZERO, 
+                            cardBin + "****" + cardLastFour, null, (int) transactionsInMinute, BigDecimal.ZERO, 
                             oneMinuteAgo, LocalDateTime.now(), true, cardTransactionsPerMinute, null);
             limitExceeded = true;
-            log.warn("Card velocity limit exceeded - transactions per minute: {} >= {}", 
-                    transactionsInMinute, cardTransactionsPerMinute);
+            log.warn("🚨 VELOCITY LIMIT EXCEEDED - Card transactions per minute: {} >= {} (Card: {}****{})", 
+                    transactionsInMinute, cardTransactionsPerMinute, cardBin, cardLastFour);
         }
         
         // Check transactions per hour
         LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
         long transactionsInHour = velocityCheckRepository.countCardTransactions(
-                cardPrefix, oneHourAgo, LocalDateTime.now());
+                cardBin, cardLastFour, oneHourAgo, LocalDateTime.now());
         
         if (transactionsInHour >= cardTransactionsPerHour) {
             saveVelocityCheck(VelocityCheck.VelocityType.CARD_TRANSACTIONS_PER_HOUR, 
-                            cardPrefix, null, (int) transactionsInHour, BigDecimal.ZERO, 
+                            cardBin + "****" + cardLastFour, null, (int) transactionsInHour, BigDecimal.ZERO, 
                             oneHourAgo, LocalDateTime.now(), true, cardTransactionsPerHour, null);
             limitExceeded = true;
-            log.warn("Card velocity limit exceeded - transactions per hour: {} >= {}", 
-                    transactionsInHour, cardTransactionsPerHour);
+            log.warn("🚨 VELOCITY LIMIT EXCEEDED - Card transactions per hour: {} >= {} (Card: {}****{})", 
+                    transactionsInHour, cardTransactionsPerHour, cardBin, cardLastFour);
         }
         
-        // Check amount per hour
+        // Check amount per hour (including current transaction)
         BigDecimal amountInHour = velocityCheckRepository.sumCardTransactionAmount(
-                cardPrefix, oneHourAgo, LocalDateTime.now());
+                cardBin, cardLastFour, oneHourAgo, LocalDateTime.now());
         
-        if (amountInHour != null && amountInHour.compareTo(cardAmountPerHour) >= 0) {
+        // Add current transaction amount to the total
+        BigDecimal totalWithCurrent = amountInHour.add(request.getAmount());
+        
+        if (totalWithCurrent.compareTo(cardAmountPerHour) >= 0) {
             saveVelocityCheck(VelocityCheck.VelocityType.CARD_AMOUNT_PER_HOUR, 
-                            cardPrefix, null, 0, amountInHour, 
+                            cardBin + "****" + cardLastFour, null, 0, totalWithCurrent, 
                             oneHourAgo, LocalDateTime.now(), true, null, cardAmountPerHour);
             limitExceeded = true;
-            log.warn("Card velocity limit exceeded - amount per hour: {} >= {}", 
-                    amountInHour, cardAmountPerHour);
+            log.warn("🚨 VELOCITY LIMIT EXCEEDED - Card amount per hour: {} >= {} TRY (Card: {}****{}) [Previous: {} + Current: {} = {}]", 
+                    totalWithCurrent, cardAmountPerHour, cardBin, cardLastFour, 
+                    amountInHour, request.getAmount(), totalWithCurrent);
+        } else {
+            log.debug("✅ Amount velocity check passed - Card amount per hour: {} < {} TRY (Card: {}****{}) [Previous: {} + Current: {} = {}]", 
+                    totalWithCurrent, cardAmountPerHour, cardBin, cardLastFour,
+                    amountInHour, request.getAmount(), totalWithCurrent);
         }
         
         // Check transactions per day
         LocalDateTime oneDayAgo = LocalDateTime.now().minusDays(1);
         long transactionsInDay = velocityCheckRepository.countCardTransactions(
-                cardPrefix, oneDayAgo, LocalDateTime.now());
+                cardBin, cardLastFour, oneDayAgo, LocalDateTime.now());
         
         if (transactionsInDay >= cardTransactionsPerDay) {
             saveVelocityCheck(VelocityCheck.VelocityType.CARD_TRANSACTIONS_PER_DAY, 
-                            cardPrefix, null, (int) transactionsInDay, BigDecimal.ZERO, 
+                            cardBin + "****" + cardLastFour, null, (int) transactionsInDay, BigDecimal.ZERO, 
                             oneDayAgo, LocalDateTime.now(), true, cardTransactionsPerDay, null);
             limitExceeded = true;
-            log.warn("Card velocity limit exceeded - transactions per day: {} >= {}", 
-                    transactionsInDay, cardTransactionsPerDay);
+            log.warn("🚨 VELOCITY LIMIT EXCEEDED - Card transactions per day: {} >= {} (Card: {}****{})", 
+                    transactionsInDay, cardTransactionsPerDay, cardBin, cardLastFour);
         }
         
         return limitExceeded;
