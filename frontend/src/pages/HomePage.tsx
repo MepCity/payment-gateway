@@ -82,7 +82,7 @@ const HomePage: React.FC = () => {
             </Typography>
             
             <Typography variant="caption" display="block">
-              <strong>Bank Webhooks:</strong> /v1/payments/bank-webhooks/*
+              <strong>Bank Webhooks:</strong> /api/v1/bank-webhooks/*
             </Typography>
           </Paper>
         </Box>

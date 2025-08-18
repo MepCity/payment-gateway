@@ -123,8 +123,8 @@ public class CustomerController {
         return ResponseEntity.ok(customers);
     }
     
-    // POST - Update customer
-    @PostMapping("/{id}/update")
+    // PUT - Update customer
+    @PutMapping("/{id}/update")
     public ResponseEntity<CustomerResponse> updateCustomer(@PathVariable Long id, @Valid @RequestBody CustomerRequest request) {
         log.info("Updating customer with ID: {}", id);
         

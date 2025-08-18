@@ -13,7 +13,7 @@ import java.util.Map;
  * Bankalardan gelen webhook'ları işleyen controller
  */
 @RestController
-@RequestMapping("/api/bank-webhooks")
+@RequestMapping("/api/v1/bank-webhooks")
 @RequiredArgsConstructor
 @Slf4j
 @CrossOrigin(origins = "*")
