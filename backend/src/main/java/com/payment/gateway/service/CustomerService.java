@@ -42,10 +42,7 @@ public class CustomerService {
             customer.setLastName(request.getLastName());
             customer.setEmail(request.getEmail());
             customer.setPhoneNumber(request.getPhone());
-            customer.setAddress(request.getAddress().getStreet());
-            customer.setCity(request.getAddress().getCity());
-            customer.setCountry(request.getAddress().getCountry());
-            customer.setPostalCode(request.getAddress().getPostalCode());
+            customer.setAddress(request.getAddress());
             customer.setStatus(Customer.CustomerStatus.ACTIVE);
             customer.setNotes(request.getNotes());
             
@@ -115,19 +112,7 @@ public class CustomerService {
                 .collect(Collectors.toList());
     }
     
-    public List<CustomerResponse> getCustomersByCity(String city) {
-        List<Customer> customers = customerRepository.findByCity(city);
-        return customers.stream()
-                .map(customer -> createCustomerResponse(customer, null, true))
-                .collect(Collectors.toList());
-    }
-    
-    public List<CustomerResponse> getCustomersByCountry(String country) {
-        List<Customer> customers = customerRepository.findByCountry(country);
-        return customers.stream()
-                .map(customer -> createCustomerResponse(customer, null, true))
-                .collect(Collectors.toList());
-    }
+
     
     public List<CustomerResponse> searchCustomersByName(String name) {
         List<Customer> customers = customerRepository.findByNameContaining(name);
@@ -152,10 +137,7 @@ public class CustomerService {
             customer.setLastName(request.getLastName());
             customer.setEmail(request.getEmail());
             customer.setPhoneNumber(request.getPhone());
-            customer.setAddress(request.getAddress().getStreet());
-            customer.setCity(request.getAddress().getCity());
-            customer.setCountry(request.getAddress().getCountry());
-            customer.setPostalCode(request.getAddress().getPostalCode());
+            customer.setAddress(request.getAddress());
             customer.setNotes(request.getNotes());
             
             Customer updatedCustomer = customerRepository.save(customer);
@@ -250,9 +232,6 @@ public class CustomerService {
         response.setEmail(customer.getEmail());
         response.setPhoneNumber(customer.getPhoneNumber());
         response.setAddress(customer.getAddress());
-        response.setCity(customer.getCity());
-        response.setCountry(customer.getCountry());
-        response.setPostalCode(customer.getPostalCode());
         response.setStatus(customer.getStatus());
         response.setNotes(customer.getNotes());
         response.setCreatedAt(customer.getCreatedAt());

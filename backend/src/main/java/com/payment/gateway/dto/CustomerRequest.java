@@ -32,30 +32,12 @@ public class CustomerRequest {
     @NotNull(message = "Date of birth is required")
     private LocalDate dateOfBirth;
     
-    @NotNull(message = "Address is required")
-    private AddressRequest address;
+    @NotBlank(message = "Address is required")
+    @Size(min = 5, max = 100, message = "Address must be between 5 and 100 characters")
+    private String address;
     
     @Size(max = 500, message = "Notes cannot exceed 500 characters")
     private String notes;
     
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class AddressRequest {
-        @NotBlank(message = "Street is required")
-        @Size(min = 5, max = 100, message = "Street must be between 5 and 100 characters")
-        private String street;
-        
-        @NotBlank(message = "City is required")
-        @Size(min = 2, max = 50, message = "City must be between 2 and 50 characters")
-        private String city;
-        
-        @NotBlank(message = "Postal code is required")
-        @Pattern(regexp = "^[0-9A-Za-z\\s-]{3,10}$", message = "Postal code must be 3-10 characters")
-        private String postalCode;
-        
-        @NotBlank(message = "Country is required")
-        @Size(min = 2, max = 50, message = "Country must be between 2 and 50 characters")
-        private String country;
-    }
+   
 }

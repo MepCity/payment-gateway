@@ -187,9 +187,6 @@ Content-Type: application/json
   "email": "john.doe@example.com",
   "phoneNumber": "+1234567890",
   "address": "123 Main Street",
-  "city": "New York",
-  "country": "USA",
-  "postalCode": "10001",
   "notes": "VIP customer"
 }
 ```
@@ -219,15 +216,7 @@ GET /api/v1/customers
 GET /api/v1/customers/status/{status}
 ```
 
-#### 7. Get Customers by City (GET)
-```http
-GET /api/v1/customers/city/{city}
-```
 
-#### 8. Get Customers by Country (GET)
-```http
-GET /api/v1/customers/country/{country}
-```
 
 #### 9. Search Customers by Name (GET)
 ```http
@@ -245,9 +234,6 @@ Content-Type: application/json
   "email": "john.smith@example.com",
   "phoneNumber": "+1234567890",
   "address": "456 Oak Avenue",
-  "city": "Los Angeles",
-  "country": "USA",
-  "postalCode": "90210",
   "notes": "Updated customer info"
 }
 ```

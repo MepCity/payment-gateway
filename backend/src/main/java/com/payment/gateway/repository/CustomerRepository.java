@@ -18,9 +18,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     
     List<Customer> findByStatus(Customer.CustomerStatus status);
     
-    List<Customer> findByCity(String city);
-    
-    List<Customer> findByCountry(String country);
+
     
     @Query("SELECT c FROM Customer c WHERE c.firstName LIKE %:name% OR c.lastName LIKE %:name%")
     List<Customer> findByNameContaining(@Param("name") String name);

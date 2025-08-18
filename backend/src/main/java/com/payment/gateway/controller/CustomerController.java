@@ -95,24 +95,6 @@ public class CustomerController {
         return ResponseEntity.ok(customers);
     }
     
-    // GET - Get customers by city
-    @GetMapping("/city/{city}")
-    public ResponseEntity<List<CustomerResponse>> getCustomersByCity(@PathVariable String city) {
-        log.info("Retrieving customers in city: {}", city);
-        
-        List<CustomerResponse> customers = customerService.getCustomersByCity(city);
-        return ResponseEntity.ok(customers);
-    }
-    
-    // GET - Get customers by country
-    @GetMapping("/country/{country}")
-    public ResponseEntity<List<CustomerResponse>> getCustomersByCountry(@PathVariable String country) {
-        log.info("Retrieving customers in country: {}", country);
-        
-        List<CustomerResponse> customers = customerService.getCustomersByCountry(country);
-        return ResponseEntity.ok(customers);
-    }
-    
     // GET - Search customers by name
     @GetMapping("/search")
     public ResponseEntity<List<CustomerResponse>> searchCustomersByName(@RequestParam String name) {
