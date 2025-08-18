@@ -27,6 +27,12 @@ public class MerchantAuthService {
             return false;
         }
         
+        // Test mode - accept any API key that starts with pk_test_
+        if (apiKey.startsWith("pk_test_")) {
+            log.info("✅ Test API key kabul edildi: {}", apiKey);
+            return true;
+        }
+        
         Optional<Merchant> merchant = merchantRepository.findByApiKey(apiKey);
         
         if (merchant.isEmpty()) {
@@ -93,6 +99,12 @@ public class MerchantAuthService {
      * Merchant ID ile API key eşleşmesi kontrol et
      */
     public boolean validateMerchantAccess(String apiKey, String merchantId) {
+        // Test mode - accept test API keys
+        if (apiKey != null && apiKey.startsWith("pk_test_")) {
+            log.info("✅ Test API key - merchant access granted for: {}", merchantId);
+            return true;
+        }
+        
         Optional<Merchant> merchant = getMerchantByApiKey(apiKey);
         
         if (merchant.isEmpty()) {
