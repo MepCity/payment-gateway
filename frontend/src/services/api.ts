@@ -58,9 +58,9 @@ export const paymentAPI = {
   refundPayment: (id: number): Promise<PaymentResponse> =>
     api.post(`/v1/payments/${id}/refund`).then(response => response.data),
 
-  // Health check
-  healthCheck: (): Promise<string> =>
-    api.get('/v1/payments/health').then(response => response.data),
+  // Health check using Spring Boot Actuator
+  healthCheck: (): Promise<any> =>
+    api.get('/actuator/health').then(response => response.data),
 };
 
 export default api;

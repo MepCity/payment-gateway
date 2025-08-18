@@ -148,9 +148,5 @@ public class CustomerController {
         }
     }
     
-    // Health check endpoint
-    @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Customer Service is running!");
-    }
+
 }

@@ -162,9 +162,5 @@ public class RefundController {
         }
     }
     
-    // Health check endpoint
-    @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Refund Service is running!");
-    }
+
 }

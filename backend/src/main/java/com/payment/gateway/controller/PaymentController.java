@@ -388,11 +388,7 @@ public class PaymentController {
         log.info("💵 Tahsilat tutarı: {}, Tarih: {}", settledAmount, settlementDate);
     }
     
-    // Health check endpoint
-    @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Payment Gateway is running!");
-    }
+
     
     /**
      * Extract client IP address from HTTP request

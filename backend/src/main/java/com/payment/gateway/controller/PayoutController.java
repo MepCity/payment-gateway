@@ -146,8 +146,5 @@ public class PayoutController {
         return ResponseEntity.ok(count);
     }
     
-    @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("Payout service is healthy");
-    }
+
 }

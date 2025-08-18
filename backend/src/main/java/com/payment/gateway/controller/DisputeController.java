@@ -176,9 +176,5 @@ public class DisputeController {
         }
     }
     
-    // Health check endpoint
-    @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Dispute Service is running!");
-    }
+
 }

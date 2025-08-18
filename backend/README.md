@@ -171,7 +171,7 @@ POST /api/v1/payments/{id}/refund
 
 #### 11. Health Check (GET)
 ```http
-GET /api/v1/payments/health
+GET /actuator/health
 ```
 
 ### Customer Endpoints
@@ -702,7 +702,7 @@ GET /api/v1/payouts/count/status/COMPLETED
 
 #### 14. Health Check (GET)
 ```http
-GET /api/v1/payouts/health
+GET /actuator/health
 ```
 
 ### Payout Status Flow
