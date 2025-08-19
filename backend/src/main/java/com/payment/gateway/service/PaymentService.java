@@ -215,6 +215,15 @@ public class PaymentService {
         }
     }
     
+    public PaymentResponse getPaymentByPaymentId(String paymentId) {
+        Optional<Payment> payment = paymentRepository.findByPaymentId(paymentId);
+        if (payment.isPresent()) {
+            return createPaymentResponse(payment.get(), "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with payment ID: " + paymentId);
+        }
+    }
+    
     public List<PaymentResponse> getAllPayments() {
         List<Payment> payments = paymentRepository.findAll();
         return payments.stream()

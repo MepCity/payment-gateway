@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.payment.gateway.service.AuditService;
 import com.payment.gateway.model.AuditLog;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -25,9 +26,38 @@ public class RefundService {
     
     private final RefundRepository refundRepository;
     private final AuditService auditService;
+    private final PaymentService paymentService;
     
     public RefundResponse createRefund(RefundRequest request) {
         try {
+            // Validate payment exists and get payment details
+            var paymentResponse = paymentService.getPaymentByPaymentId(request.getPaymentId());
+            BigDecimal originalAmount = paymentResponse.getAmount();
+            
+            // Get existing refunds for this payment
+            List<Refund> existingRefunds = refundRepository.findByPaymentId(request.getPaymentId())
+                .stream()
+                .filter(refund -> refund.getStatus() == Refund.RefundStatus.COMPLETED)
+                .collect(Collectors.toList());
+            
+            // Calculate total already refunded amount
+            BigDecimal totalRefunded = existingRefunds.stream()
+                .map(Refund::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            // Validate refund amount
+            BigDecimal availableAmount = originalAmount.subtract(totalRefunded);
+            if (request.getAmount().compareTo(availableAmount) > 0) {
+                throw new IllegalArgumentException(
+                    String.format("Refund amount %s exceeds available amount %s for payment %s", 
+                        request.getAmount(), availableAmount, request.getPaymentId())
+                );
+            }
+            
+            if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Refund amount must be greater than 0");
+            }
+            
             // Generate unique refund ID
             String refundId = generateRefundId();
             

@@ -9,6 +9,9 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import ProcessPaymentPage from './pages/ProcessPaymentPage';
 import PaymentsPage from './pages/PaymentsPage';
 import PaymentDetailPage from './pages/PaymentDetailPage';
+import RefundsPage from './pages/RefundsPage';
+import ProcessRefundPage from './pages/ProcessRefundPage';
+import RefundDetailPage from './pages/RefundDetailPage';
 
 // Create theme similar to Hyperswitch
 const theme = createTheme({
@@ -96,8 +99,12 @@ function App() {
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="payments/:paymentId" element={<PaymentDetailPage />} />
               
+              {/* Refunds */}
+              <Route path="refunds" element={<RefundsPage />} />
+              <Route path="refunds/process" element={<ProcessRefundPage />} />
+              <Route path="refunds/:refundId" element={<RefundDetailPage />} />
+              
               {/* Other routes - to be implemented */}
-              <Route path="refunds" element={<div>Refunds Page - Coming Soon</div>} />
               <Route path="disputes" element={<div>Disputes Page - Coming Soon</div>} />
               <Route path="customers" element={<div>Customers Page - Coming Soon</div>} />
               <Route path="analytics" element={<div>Analytics Page - Coming Soon</div>} />

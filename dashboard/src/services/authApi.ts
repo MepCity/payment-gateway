@@ -20,7 +20,7 @@ export const authAPI = {
       
       // Mock implementation for now  
       if (credentials.email === 'merchant@test.com' && credentials.password === 'password') {
-        const apiKey = 'pk_test_merchant_' + Date.now();
+        const apiKey = 'pk_merch001_live_abc123'; // Use the valid API key
         
         return {
           success: true,

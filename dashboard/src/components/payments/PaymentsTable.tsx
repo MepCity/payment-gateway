@@ -19,6 +19,7 @@ import {
   CreditCard,
   AccountBalance,
   Wallet,
+  Replay,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { PaymentListItem, PaymentMethod } from '../../types/dashboard';
@@ -29,6 +30,7 @@ interface PaymentsTableProps {
   loading?: boolean;
   onRowClick: (payment: PaymentListItem) => void;
   onSyncPayment?: (paymentId: string) => void;
+  onProcessAgain?: (payment: PaymentListItem) => void;
 }
 
 const PaymentsTable: React.FC<PaymentsTableProps> = ({
@@ -36,6 +38,7 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
   loading = false,
   onRowClick,
   onSyncPayment,
+  onProcessAgain,
 }) => {
   console.log('PaymentsTable received payments:', payments);
   const getPaymentMethodIcon = (method: PaymentMethod) => {
@@ -169,6 +172,21 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
                       <Visibility fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  
+                  {onProcessAgain && (
+                    <Tooltip title="Process Again">
+                      <IconButton 
+                        size="small"
+                        color="primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onProcessAgain(payment);
+                        }}
+                      >
+                        <Replay fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   
                   {onSyncPayment && (
                     <Tooltip title="Sync Status">

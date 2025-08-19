@@ -108,6 +108,20 @@ public class PaymentController {
         }
     }
     
+    // GET - Get payment by payment ID
+    @GetMapping("/payment/{paymentId}")
+    public ResponseEntity<PaymentResponse> getPaymentByPaymentId(@PathVariable String paymentId) {
+        log.info("Retrieving payment with payment ID: {}", paymentId);
+        
+        PaymentResponse response = paymentService.getPaymentByPaymentId(paymentId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
     // GET - Get all payments
     @GetMapping
     public ResponseEntity<List<PaymentResponse>> getAllPayments() {

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -59,11 +60,13 @@ function TabPanel(props: TabPanelProps) {
 
 const ProcessPaymentPage: React.FC = () => {
   const { state } = useAuth();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [tabValue, setTabValue] = useState(0);
   const [formData, setFormData] = useState<PaymentFormData>({
-    customerId: 'hyperswitch_sdk_demo_id',
-    amount: '44',
-    currency: 'USD',
+    customerId: '',
+    amount: '',
+    currency: 'TRY',
     paymentMethod: 'CREDIT_CARD',
     cardNumber: '',
     cardHolderName: '',
@@ -76,6 +79,40 @@ const ProcessPaymentPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSavedCard, setShowSavedCard] = useState(true);
+
+  // URL parametrelerinden veya location state'den forma doldurma
+  useEffect(() => {
+    const urlCustomerId = searchParams.get('customerId');
+    const urlAmount = searchParams.get('amount');
+    const urlCurrency = searchParams.get('currency');
+    const urlPaymentMethod = searchParams.get('paymentMethod');
+    const urlDescription = searchParams.get('description');
+
+    // Location state'den gelen payment bilgisi (PaymentsPage'den gelirse)
+    const paymentData = location.state?.payment;
+
+    if (paymentData) {
+      // Payment detaylarından gelen bilgilerle formu doldur
+      setFormData(prev => ({
+        ...prev,
+        customerId: paymentData.customerId || '',
+        amount: paymentData.amount?.toString() || '',
+        currency: paymentData.currency || 'TRY',
+        paymentMethod: paymentData.paymentMethod || 'CREDIT_CARD',
+        description: paymentData.description || '',
+      }));
+    } else if (urlCustomerId || urlAmount || urlCurrency) {
+      // URL parametrelerinden gelen bilgilerle formu doldur
+      setFormData(prev => ({
+        ...prev,
+        customerId: urlCustomerId || prev.customerId,
+        amount: urlAmount || prev.amount,
+        currency: urlCurrency || prev.currency,
+        paymentMethod: urlPaymentMethod || prev.paymentMethod,
+        description: urlDescription || prev.description,
+      }));
+    }
+  }, [searchParams, location.state]);
 
   // Test card data
   const testCards = [

@@ -21,21 +21,29 @@ import {
   Paper,
   Tabs,
   Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
   ArrowBack,
   Sync,
+  Undo,
   ExpandMore,
   Info,
   Warning,
   Error as ErrorIcon,
   CheckCircle,
+  ContentCopy,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { dashboardAPI } from '../services/dashboardApi';
-import { PaymentDetail, PaymentEvent, PaymentLog, PaymentStatus, PaymentMethod } from '../types/dashboard';
+import { PaymentDetail, PaymentEvent, PaymentLog, PaymentStatus, PaymentMethod, RefundReason } from '../types/dashboard';
 import StatusChip from '../components/common/StatusChip';
 
 interface TabPanelProps {
@@ -69,112 +77,14 @@ const PaymentDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
-
-  // Mock payment detail data
-  const mockPaymentDetail: PaymentDetail = {
-    id: 1,
-    paymentId: paymentId || 'pay_O7H7KL7PWnc92drRvE8Z',
-    transactionId: 'txn_123456789',
-    merchantId: 'MERCH001',
-    customerId: 'CUST001',
-    amount: 44.00,
-    currency: 'USD',
-    status: PaymentStatus.COMPLETED,
-    paymentMethod: PaymentMethod.CREDIT_CARD,
-    cardNumber: '************1234',
-    cardHolderName: 'John Doe',
-    description: 'Test payment',
-    gatewayResponse: 'Payment processed successfully',
-    gatewayTransactionId: 'GTW-X1Y2Z3W4',
-    cardBrand: 'VISA',
-    cardBin: '411111',
-    cardLastFour: '1234',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-  };
-
-  const mockEvents: PaymentEvent[] = [
-    {
-      id: '1',
-      eventType: 'PAYMENT_INITIATED',
-      timestamp: new Date(Date.now() - 300000).toISOString(),
-      status: 'INFO',
-      message: 'Payment request received',
-      details: { 
-        merchantId: 'MERCH001',
-        amount: 44.00,
-        currency: 'USD'
-      }
-    },
-    {
-      id: '2',
-      eventType: 'PAYMENT_PROCESSING',
-      timestamp: new Date(Date.now() - 240000).toISOString(),
-      status: 'INFO',
-      message: 'Payment being processed by gateway',
-      details: { 
-        gateway: 'Garanti BBVA',
-        processingTime: 150
-      }
-    },
-    {
-      id: '3',
-      eventType: 'PAYMENT_COMPLETED',
-      timestamp: new Date(Date.now() - 180000).toISOString(),
-      status: 'SUCCESS',
-      message: 'Payment completed successfully',
-      details: { 
-        authCode: 'AUTH123456',
-        transactionId: 'TXN789012'
-      }
-    }
-  ];
-
-  const mockLogs: PaymentLog[] = [
-    {
-      id: '1',
-      level: 'INFO',
-      timestamp: new Date(Date.now() - 300000).toISOString(),
-      message: 'POST /v1/payments - Payment Create',
-      source: 'API',
-      requestId: '8190bcae-d129-7640-bd7a-06af4cc96b72',
-      merchantId: 'MERCH001',
-      paymentId: paymentId || 'pay_O7H7KL7PWnc92drRvE8Z',
-      apiAuthType: 'merchant_jwt',
-      latency: 78,
-      urlPath: '/payments',
-      details: {
-        httpStatus: 200,
-        requestSize: 1024,
-        responseSize: 512
-      }
-    },
-    {
-      id: '2',
-      level: 'INFO',
-      timestamp: new Date(Date.now() - 240000).toISOString(),
-      message: 'Orca Elements Called',
-      source: 'SDK',
-      latency: 45,
-      details: {
-        elementType: 'payment_form',
-        browserInfo: 'Chrome 91.0.4472.124'
-      }
-    },
-    {
-      id: '3',
-      level: 'INFO',
-      timestamp: new Date(Date.now() - 180000).toISOString(),
-      message: 'App Rendered',
-      source: 'SDK',
-      latency: 12,
-      details: {
-        renderTime: 12,
-        elementsLoaded: 5
-      }
-    }
-  ];
+  
+  // Refund dialog state
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('CUSTOMER_REQUEST');
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [existingRefunds, setExistingRefunds] = useState<any[]>([]);
+  const [totalRefundedAmount, setTotalRefundedAmount] = useState(0);
 
   const loadPaymentDetail = async () => {
     if (!paymentId) return;
@@ -183,18 +93,86 @@ const PaymentDetailPage: React.FC = () => {
     setError(null);
     
     try {
-      // TODO: Replace with real API calls
-      // const paymentDetail = await dashboardAPI.getPaymentDetail(paymentId);
-      // const eventsAndLogs = await dashboardAPI.getPaymentEvents(paymentId);
+      // Real API calls
+      const paymentDetail = await dashboardAPI.getPaymentDetail(paymentId);
+      const eventsAndLogs = await dashboardAPI.getPaymentEvents(paymentId);
       
-      // Mock implementation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setPayment(paymentDetail);
+      setEvents(paymentDetail.events || eventsAndLogs.events || []);
+      setLogs(paymentDetail.logs || eventsAndLogs.logs || []);
       
-      setPayment(mockPaymentDetail);
-      setEvents(mockEvents);
-      setLogs(mockLogs);
+      // Load existing refunds for this payment
+      try {
+        const refundsResponse = await dashboardAPI.getRefunds(authState.user!.merchantId);
+        const paymentRefunds = refundsResponse.refunds.filter(refund => refund.paymentId === paymentId);
+        setExistingRefunds(paymentRefunds);
+        
+        // Calculate total refunded amount (only for completed refunds)
+        const totalRefunded = paymentRefunds
+          .filter(refund => refund.status === 'COMPLETED')
+          .reduce((sum, refund) => sum + refund.amount, 0);
+        setTotalRefundedAmount(totalRefunded);
+        
+        // Create refund events and add them to the events timeline
+        const refundEvents: PaymentEvent[] = paymentRefunds.map(refund => ({
+          id: `refund-${refund.id}`,
+          eventType: `REFUND_${refund.status}`,
+          timestamp: refund.createdAt,
+          status: refund.status === 'COMPLETED' ? 'SUCCESS' as const : 
+                  refund.status === 'FAILED' ? 'FAILED' as const : 'INFO' as const,
+          message: `Refund ${refund.status.toLowerCase()} - ${refund.amount} ${refund.currency}`,
+          details: {
+            refundId: refund.refundId,
+            amount: refund.amount,
+            reason: refund.reason,
+            description: refund.description
+          }
+        }));
+        
+        // Combine payment events with refund events and sort by timestamp
+        const allEvents = [...(paymentDetail.events || eventsAndLogs.events || []), ...refundEvents]
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        
+        setEvents(allEvents);
+        
+        // Create refund logs and add them to the logs list
+        const refundLogs: PaymentLog[] = paymentRefunds.map(refund => ({
+          id: `refund-log-${refund.id}`,
+          level: refund.status === 'FAILED' ? 'ERROR' as const : 'INFO' as const,
+          timestamp: refund.createdAt,
+          message: `Refund ${refund.status.toLowerCase()} for ${refund.amount} ${refund.currency}`,
+          source: 'API' as const,
+          merchantId: refund.merchantId,
+          paymentId: refund.paymentId,
+          refundId: refund.refundId,
+          apiAuthType: 'API_KEY',
+          urlPath: `/v1/refunds`,
+          details: {
+            refundId: refund.refundId,
+            amount: refund.amount,
+            currency: refund.currency,
+            reason: refund.reason,
+            status: refund.status
+          }
+        }));
+        
+        // Combine payment logs with refund logs and sort by timestamp
+        const allLogs = [...(paymentDetail.logs || eventsAndLogs.logs || []), ...refundLogs]
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        
+        setLogs(allLogs);
+        
+      } catch (refundErr) {
+        console.error('Error loading refunds:', refundErr);
+        // Don't fail the whole page if refunds can't be loaded
+        setExistingRefunds([]);
+        setTotalRefundedAmount(0);
+        setEvents(paymentDetail.events || eventsAndLogs.events || []);
+        setLogs(paymentDetail.logs || eventsAndLogs.logs || []);
+      }
       
     } catch (err: any) {
+      console.error('Error loading payment detail:', err);
       setError(err.message || 'Failed to load payment details');
     } finally {
       setLoading(false);
@@ -216,6 +194,73 @@ const PaymentDetailPage: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Failed to sync payment');
     }
+  };
+
+  const handleProcessRefund = () => {
+    if (!payment) return;
+    
+    // Open refund dialog with available amount pre-filled
+    const availableAmount = payment.amount - totalRefundedAmount;
+    setRefundAmount(availableAmount.toString());
+    setRefundDialogOpen(true);
+  };
+
+  const handleRefundSubmit = async () => {
+    if (!payment || !refundAmount) return;
+    
+    setRefundLoading(true);
+    try {
+      const refundAmountNum = parseFloat(refundAmount);
+      
+      // Validation: Check if refund amount is valid
+      if (refundAmountNum <= 0) {
+        throw new Error('Refund amount must be greater than 0');
+      }
+      
+      // Validation: Check if refund amount exceeds available amount
+      const availableAmount = payment.amount - totalRefundedAmount;
+      if (refundAmountNum > availableAmount) {
+        throw new Error(`Refund amount cannot exceed available amount: ${availableAmount.toFixed(2)} ${payment.currency}`);
+      }
+      
+      const refundRequest = {
+        paymentId: payment.paymentId,
+        transactionId: payment.transactionId,
+        merchantId: payment.merchantId,
+        customerId: payment.customerId,
+        amount: refundAmountNum,
+        currency: payment.currency,
+        reason: refundReason as RefundReason,
+        description: `Refund for payment ${payment.paymentId}`
+      };
+      
+      await dashboardAPI.createRefund(refundRequest);
+      
+      // Close dialog and show success
+      setRefundDialogOpen(false);
+      setRefundAmount('');
+      alert('Refund processed successfully!');
+      
+      // Refresh payment details
+      loadPaymentDetail();
+      
+    } catch (err: any) {
+      console.error('Error processing refund:', err);
+      alert(err.message || 'Failed to process refund');
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
+  const handleCopyToClipboard = (data: any, type: string) => {
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+      .then(() => {
+        alert(`${type} copied to clipboard!`);
+      })
+      .catch(err => {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy to clipboard');
+      });
   };
 
   const formatAmount = (amount: number, currency: string) => {
@@ -252,6 +297,95 @@ const PaymentDetailPage: React.FC = () => {
       default:
         return 'info';
     }
+  };
+
+  const formatPaymentRequest = (payment: PaymentDetail) => {
+    return {
+      amount: {
+        value: payment.amount * 100, // Convert to cents
+        currency: payment.currency
+      },
+      payment_id: payment.paymentId,
+      merchant_id: payment.merchantId,
+      customer_id: payment.customerId,
+      description: payment.description || "Payment via Payment Gateway",
+      payment_method: payment.paymentMethod,
+      card: {
+        number: payment.cardNumber,
+        holder_name: payment.cardHolderName,
+        brand: payment.cardBrand || "Unknown",
+        bin: payment.cardBin || "N/A",
+        last_four: payment.cardLastFour || payment.cardNumber?.slice(-4)
+      },
+      capture_method: "automatic",
+      authentication_type: "no_three_ds",
+      confirm: true,
+      return_url: `${window.location.origin}/dashboard/payments/${payment.paymentId}`,
+      metadata: {
+        transaction_id: payment.transactionId,
+        created_at: payment.createdAt,
+        gateway_transaction_id: payment.gatewayTransactionId
+      },
+      billing: {
+        name: payment.cardHolderName,
+        email: `${payment.customerId}@example.com`
+      }
+    };
+  };
+
+  const formatPaymentResponse = (payment: PaymentDetail) => {
+    return {
+      payment_id: payment.paymentId,
+      merchant_id: payment.merchantId,
+      status: payment.status.toLowerCase(),
+      amount: payment.amount * 100, // Convert to cents
+      net_amount: payment.amount * 100,
+      amount_capturable: payment.status === PaymentStatus.COMPLETED ? payment.amount * 100 : 0,
+      amount_received: payment.status === PaymentStatus.COMPLETED ? payment.amount * 100 : null,
+      currency: payment.currency,
+      customer_id: payment.customerId,
+      customer: {
+        id: payment.customerId,
+        name: payment.cardHolderName,
+        email: `${payment.customerId}@example.com`
+      },
+      description: payment.description || "Payment via Payment Gateway",
+      created: payment.createdAt,
+      updated: payment.updatedAt,
+      completed_at: payment.completedAt,
+      capture_method: "automatic",
+      payment_method: payment.paymentMethod.toLowerCase(),
+      payment_method_data: {
+        card: {
+          number: payment.cardNumber,
+          holder_name: payment.cardHolderName,
+          brand: payment.cardBrand || "Unknown",
+          bin: payment.cardBin || "N/A",
+          last_four: payment.cardLastFour || payment.cardNumber?.slice(-4)
+        }
+      },
+      connector_transaction_id: payment.gatewayTransactionId,
+      gateway_response: payment.gatewayResponse,
+      attempt_count: 1,
+      authentication_type: "no_three_ds",
+      error_code: payment.status === PaymentStatus.FAILED ? "PAYMENT_FAILED" : null,
+      error_message: payment.status === PaymentStatus.FAILED ? "Payment processing failed" : null,
+      expires_on: null,
+      fingerprint: null,
+      metadata: {
+        transaction_id: payment.transactionId,
+        processed_at: new Date().toISOString(),
+        gateway: "payment-gateway-v1"
+      },
+      refunds: existingRefunds.map(refund => ({
+        refund_id: refund.refundId,
+        amount: refund.amount * 100,
+        currency: refund.currency,
+        status: refund.status.toLowerCase(),
+        reason: refund.reason,
+        created_at: refund.createdAt
+      }))
+    };
   };
 
   if (loading) {
@@ -305,13 +439,24 @@ const PaymentDetailPage: React.FC = () => {
           </Typography>
         </Box>
         
-        <Button
-          variant="contained"
-          startIcon={<Sync />}
-          onClick={handleSyncPayment}
-        >
-          Sync
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<Undo />}
+            onClick={handleProcessRefund}
+            disabled={payment.status !== 'COMPLETED'}
+          >
+            Process Refund
+          </Button>
+          
+          <Button
+            variant="contained"
+            startIcon={<Sync />}
+            onClick={handleSyncPayment}
+          >
+            Sync
+          </Button>
+        </Box>
       </Box>
 
       {/* Summary and About Payment */}
@@ -395,6 +540,33 @@ const PaymentDetailPage: React.FC = () => {
                   </Typography>
                 </Box>
               </Box>
+              
+              {/* Refund Button */}
+              {payment.status === PaymentStatus.COMPLETED && (payment.amount - totalRefundedAmount) > 0 && (
+                <Box sx={{ mt: 3 }}>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    startIcon={<Undo />}
+                    onClick={handleProcessRefund}
+                    fullWidth
+                  >
+                    Process Refund
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+                    Available: {formatAmount(payment.amount - totalRefundedAmount, payment.currency)}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Show message if fully refunded */}
+              {payment.status === PaymentStatus.COMPLETED && (payment.amount - totalRefundedAmount) <= 0 && (
+                <Box sx={{ mt: 3 }}>
+                  <Alert severity="info">
+                    This payment has been fully refunded.
+                  </Alert>
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Box>
@@ -525,18 +697,32 @@ const PaymentDetailPage: React.FC = () => {
                     <Box sx={{ flex: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Chip 
-                          label="200" 
+                          label={event.eventType.startsWith('REFUND_') ? 'REFUND' : '200'} 
                           size="small" 
-                          color="success" 
+                          color={event.eventType.startsWith('REFUND_') ? 
+                            (event.status === 'SUCCESS' ? 'warning' : 
+                             event.status === 'FAILED' ? 'error' : 'info') : 'success'} 
                           variant="outlined"
                         />
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          POST
+                          {event.eventType.startsWith('REFUND_') ? 'REFUND' : 'POST'}
                         </Typography>
                         <Typography variant="body2">
                           {event.eventType.replace('_', ' ')}
                         </Typography>
                       </Box>
+                      
+                      {/* Event Message */}
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        {event.message}
+                      </Typography>
+                      
+                      {/* Event Details for Refunds */}
+                      {event.eventType.startsWith('REFUND_') && event.details && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          Refund ID: {event.details.refundId} | Reason: {event.details.reason}
+                        </Typography>
+                      )}
                       
                       <Typography variant="caption" color="text.secondary">
                         {formatDate(event.timestamp)}
@@ -601,18 +787,138 @@ const PaymentDetailPage: React.FC = () => {
           </TabPanel>
           
           <TabPanel value={tabValue} index={1}>
-            <Typography variant="body2">
-              Request data will be displayed here...
-            </Typography>
+            <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  Payment Request
+                </Typography>
+                <Button
+                  size="small"
+                  startIcon={<ContentCopy />}
+                  onClick={() => handleCopyToClipboard(formatPaymentRequest(payment), 'Request')}
+                >
+                  Copy
+                </Button>
+              </Box>
+              <pre style={{ 
+                backgroundColor: '#fff', 
+                padding: '16px', 
+                borderRadius: '8px', 
+                overflow: 'auto',
+                fontSize: '12px',
+                border: '1px solid #e0e0e0'
+              }}>
+                {JSON.stringify(formatPaymentRequest(payment), null, 2)}
+              </pre>
+            </Box>
           </TabPanel>
           
           <TabPanel value={tabValue} index={2}>
-            <Typography variant="body2">
-              Response data will be displayed here...
-            </Typography>
+            <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  Payment Response
+                </Typography>
+                <Button
+                  size="small"
+                  startIcon={<ContentCopy />}
+                  onClick={() => handleCopyToClipboard(formatPaymentResponse(payment), 'Response')}
+                >
+                  Copy
+                </Button>
+              </Box>
+              <pre style={{ 
+                backgroundColor: '#fff', 
+                padding: '16px', 
+                borderRadius: '8px', 
+                overflow: 'auto',
+                fontSize: '12px',
+                border: '1px solid #e0e0e0'
+              }}>
+                {JSON.stringify(formatPaymentResponse(payment), null, 2)}
+              </pre>
+            </Box>
           </TabPanel>
         </AccordionDetails>
       </Accordion>
+      
+      {/* Refund Dialog */}
+      <Dialog 
+        open={refundDialogOpen} 
+        onClose={() => setRefundDialogOpen(false)}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>Process Refund</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Payment ID: {payment?.paymentId}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Original Amount: {payment && formatAmount(payment.amount, payment.currency)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Already Refunded: {payment && formatAmount(totalRefundedAmount, payment.currency)}
+            </Typography>
+            <Typography variant="body2" color="primary.main" gutterBottom sx={{ fontWeight: 600 }}>
+              Available for Refund: {payment && formatAmount(payment.amount - totalRefundedAmount, payment.currency)}
+            </Typography>
+            
+            <TextField
+              fullWidth
+              label="Refund Amount"
+              type="number"
+              value={refundAmount}
+              onChange={(e) => setRefundAmount(e.target.value)}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">{payment?.currency}</InputAdornment>,
+              }}
+              sx={{ mt: 2, mb: 2 }}
+              inputProps={{
+                min: 0,
+                max: payment ? payment.amount - totalRefundedAmount : 0,
+                step: 0.01
+              }}
+              helperText={`Maximum refundable amount: ${payment ? formatAmount(payment.amount - totalRefundedAmount, payment.currency) : '0'}`}
+            />
+            
+            <TextField
+              fullWidth
+              select
+              label="Refund Reason"
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              SelectProps={{
+                native: true,
+              }}
+            >
+              <option value="CUSTOMER_REQUEST">Customer Request</option>
+              <option value="MERCHANT_REQUEST">Merchant Request</option>
+              <option value="DUPLICATE_PAYMENT">Duplicate Payment</option>
+              <option value="FRAUD">Fraud</option>
+              <option value="TECHNICAL_ERROR">Technical Error</option>
+              <option value="OTHER">Other</option>
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setRefundDialogOpen(false)}
+            disabled={refundLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleRefundSubmit}
+            variant="contained"
+            color="warning"
+            disabled={refundLoading || !refundAmount || parseFloat(refundAmount) <= 0}
+          >
+            {refundLoading ? <CircularProgress size={20} /> : 'Process Refund'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

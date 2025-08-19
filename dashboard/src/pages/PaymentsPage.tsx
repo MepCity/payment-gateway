@@ -183,6 +183,21 @@ const PaymentsPage: React.FC = () => {
     navigate(`/dashboard/payments/${payment.paymentId}`);
   };
 
+  const handleProcessAgain = (payment: PaymentListItem) => {
+    // PaymentListItem'dan gerekli bilgileri alıp ProcessPaymentPage'e gönder
+    navigate('/dashboard/process-payment', {
+      state: {
+        payment: {
+          customerId: payment.customerId,
+          amount: payment.amount,
+          currency: payment.currency,
+          paymentMethod: payment.paymentMethod,
+          description: payment.description,
+        }
+      }
+    });
+  };
+
   const handleSyncPayment = async (paymentId: string) => {
     try {
       // TODO: Implement sync functionality
@@ -334,6 +349,7 @@ const PaymentsPage: React.FC = () => {
             loading={loading}
             onRowClick={handleRowClick}
             onSyncPayment={handleSyncPayment}
+            onProcessAgain={handleProcessAgain}
           />
 
           {/* Pagination */}
