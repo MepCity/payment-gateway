@@ -50,4 +50,6 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     boolean existsByRefundId(String refundId);
     
     boolean existsByGatewayRefundId(String gatewayRefundId);
+
+    Optional<Refund> findByGatewayRefundId(String gatewayRefundId);
 }

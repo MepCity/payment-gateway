@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/disputes")
@@ -146,6 +147,59 @@ public class DisputeController {
         }
     }
     
+    // POST - Add evidence to dispute (Merchant kanıt gönderir)
+    @PostMapping("/{id}/evidence")
+    public ResponseEntity<DisputeResponse> addEvidenceToDispute(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> evidenceRequest) {
+        log.info("Adding evidence to dispute with ID: {}", id);
+        
+        String evidence = evidenceRequest.get("evidence");
+        String additionalNotes = evidenceRequest.get("additionalNotes");
+        
+        DisputeResponse response = disputeService.addEvidenceToDispute(id, evidence, additionalNotes);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // POST - Evaluate dispute (Admin değerlendirir)
+    @PostMapping("/{id}/evaluate")
+    public ResponseEntity<DisputeResponse> evaluateDispute(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> evaluationRequest) {
+        log.info("Evaluating dispute with ID: {}", id);
+        
+        String decision = evaluationRequest.get("decision"); // APPROVED, REJECTED, PARTIAL_REFUND
+        String adminNotes = evaluationRequest.get("adminNotes");
+        String refundAmount = evaluationRequest.get("refundAmount"); // Eğer partial refund ise
+        
+        DisputeResponse response = disputeService.evaluateDispute(id, decision, adminNotes, refundAmount);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // POST - Notify merchant about dispute result
+    @PostMapping("/{id}/notify-merchant")
+    public ResponseEntity<DisputeResponse> notifyMerchantAboutDisputeResult(@PathVariable Long id) {
+        log.info("Notifying merchant about dispute result for ID: {}", id);
+        
+        DisputeResponse response = disputeService.notifyMerchantAboutDisputeResult(id);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
     // PUT - Update dispute status
     @PutMapping("/{id}/status")
     public ResponseEntity<DisputeResponse> updateDisputeStatus(
@@ -175,6 +229,4 @@ public class DisputeController {
             return ResponseEntity.badRequest().body(response);
         }
     }
-    
-
 }

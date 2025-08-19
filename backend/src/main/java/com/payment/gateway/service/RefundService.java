@@ -186,27 +186,200 @@ public class RefundService {
     }
     
     private Refund.RefundStatus processRefundThroughGateway(Refund refund) {
-        // Simulate refund gateway processing
-        // In real implementation, this would call external refund gateway API
-        
         try {
-            // Simulate processing time
-            Thread.sleep(100);
+            log.info("Processing refund through bank gateway for refund ID: {}", refund.getRefundId());
+            
+            // Banka entegrasyonu - gerçek banka API'sine istek at
+            Refund.RefundStatus bankResponse = processRefundWithBank(refund);
+            
+            if (bankResponse == Refund.RefundStatus.PROCESSING) {
+                refund.setGatewayResponse("Refund request sent to bank - processing");
+                refund.setGatewayRefundId("GREF-" + UUID.randomUUID().toString().substring(0, 8));
+            } else if (bankResponse == Refund.RefundStatus.FAILED) {
+                refund.setGatewayResponse("Bank rejected refund request");
+                refund.setGatewayRefundId("GREF-" + UUID.randomUUID().toString().substring(0, 8));
+            }
+            
+            return bankResponse;
+            
+        } catch (Exception e) {
+            log.error("Error processing refund through gateway: {}", e.getMessage());
+            refund.setGatewayResponse("Gateway error: " + e.getMessage());
+            return Refund.RefundStatus.FAILED;
+        }
+    }
+    
+    /**
+     * Banka'ya refund isteği gönder
+     */
+    private Refund.RefundStatus processRefundWithBank(Refund refund) {
+        try {
+            // Payment bilgilerini al (hangi banka ile yapıldığını öğrenmek için)
+            String bankType = determineBankType(refund.getTransactionId());
+            
+            switch (bankType) {
+                case "GARANTI":
+                    return processRefundWithGaranti(refund);
+                case "ISBANK":
+                    return processRefundWithIsBank(refund);
+                case "AKBANK":
+                    return processRefundWithAkbank(refund);
+                default:
+                    log.error("Unknown bank type for transaction: {}", refund.getTransactionId());
+                    return Refund.RefundStatus.FAILED;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error determining bank type: {}", e.getMessage());
+            return Refund.RefundStatus.FAILED;
+        }
+    }
+    
+    /**
+     * Transaction ID'den banka tipini belirle
+     */
+    private String determineBankType(String transactionId) {
+        // Transaction ID formatına göre banka belirleme
+        // Gerçek implementasyonda bu bilgi payment tablosundan alınır
+        if (transactionId.startsWith("GAR")) {
+            return "GARANTI";
+        } else if (transactionId.startsWith("ISB")) {
+            return "ISBANK";
+        } else if (transactionId.startsWith("AKB")) {
+            return "AKBANK";
+        } else {
+            return "UNKNOWN";
+        }
+    }
+    
+    /**
+     * Garanti BBVA'ya refund isteği gönder
+     */
+    private Refund.RefundStatus processRefundWithGaranti(Refund refund) {
+        try {
+            log.info("Sending refund request to Garanti BBVA for amount: {}", refund.getAmount());
+            
+            // Garanti BBVA API'sine refund isteği
+            String garantiResponse = sendRefundRequestToGaranti(refund);
+            
+            if (garantiResponse.contains("SUCCESS")) {
+                log.info("Garanti BBVA refund request successful");
+                return Refund.RefundStatus.PROCESSING;
+            } else {
+                log.error("Garanti BBVA refund request failed: {}", garantiResponse);
+                return Refund.RefundStatus.FAILED;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing refund with Garanti BBVA: {}", e.getMessage());
+            return Refund.RefundStatus.FAILED;
+        }
+    }
+    
+    /**
+     * İş Bankası'na refund isteği gönder
+     */
+    private Refund.RefundStatus processRefundWithIsBank(Refund refund) {
+        try {
+            log.info("Sending refund request to İş Bankası for amount: {}", refund.getAmount());
+            
+            // İş Bankası API'sine refund isteği
+            String isbankResponse = sendRefundRequestToIsBank(refund);
+            
+            if (isbankResponse.contains("SUCCESS")) {
+                refund.setGatewayResponse("İş Bankası refund request successful");
+                return Refund.RefundStatus.PROCESSING;
+            } else {
+                log.error("İş Bankası refund request failed: {}", isbankResponse);
+                return Refund.RefundStatus.FAILED;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing refund with İş Bankası: {}", e.getMessage());
+            return Refund.RefundStatus.FAILED;
+        }
+    }
+    
+    /**
+     * Akbank'a refund isteği gönder
+     */
+    private Refund.RefundStatus processRefundWithAkbank(Refund refund) {
+        try {
+            log.info("Sending refund request to Akbank for amount: {}", refund.getAmount());
+            
+            // Akbank API'sine refund isteği
+            String akbankResponse = sendRefundRequestToAkbank(refund);
+            
+            if (akbankResponse.contains("SUCCESS")) {
+                log.info("Akbank refund request successful");
+                return Refund.RefundStatus.PROCESSING;
+            } else {
+                log.error("Akbank refund request failed: {}", akbankResponse);
+                return Refund.RefundStatus.FAILED;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing refund with Akbank: {}", e.getMessage());
+            return Refund.RefundStatus.FAILED;
+        }
+    }
+    
+    /**
+     * Garanti BBVA API'sine refund isteği gönder (simulated)
+     */
+    private String sendRefundRequestToGaranti(Refund refund) {
+        // Simulated Garanti BBVA API call
+        // Gerçek implementasyonda HTTP client ile API çağrısı yapılır
+        try {
+            Thread.sleep(200); // Simulate API call delay
             
             // Simulate success/failure based on amount
-            if (refund.getAmount().compareTo(java.math.BigDecimal.valueOf(1000)) > 0) {
-                refund.setGatewayResponse("Refund failed: Amount too high");
-                refund.setGatewayRefundId("GREF-" + UUID.randomUUID().toString().substring(0, 8));
-                return Refund.RefundStatus.FAILED;
+            if (refund.getAmount().compareTo(java.math.BigDecimal.valueOf(5000)) > 0) {
+                return "FAILED: Amount exceeds limit";
             } else {
-                refund.setGatewayResponse("Refund processed successfully");
-                refund.setGatewayRefundId("GREF-" + UUID.randomUUID().toString().substring(0, 8));
-                return Refund.RefundStatus.COMPLETED;
+                return "SUCCESS: Refund request accepted";
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            refund.setGatewayResponse("Refund processing interrupted");
-            return Refund.RefundStatus.FAILED;
+            return "FAILED: Request interrupted";
+        }
+    }
+    
+    /**
+     * İş Bankası API'sine refund isteği gönder (simulated)
+     */
+    private String sendRefundRequestToIsBank(Refund refund) {
+        // Simulated İş Bankası API call
+        try {
+            Thread.sleep(150); // Simulate API call delay
+            
+            if (refund.getAmount().compareTo(java.math.BigDecimal.valueOf(3000)) > 0) {
+                return "FAILED: Amount exceeds limit";
+            } else {
+                return "SUCCESS: Refund request accepted";
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "FAILED: Request interrupted";
+        }
+    }
+    
+    /**
+     * Akbank API'sine refund isteği gönder (simulated)
+     */
+    private String sendRefundRequestToAkbank(Refund refund) {
+        // Simulated Akbank API call
+        try {
+            Thread.sleep(180); // Simulate API call delay
+            
+            if (refund.getAmount().compareTo(java.math.BigDecimal.valueOf(4000)) > 0) {
+                return "FAILED: Amount exceeds limit";
+            } else {
+                return "SUCCESS: Refund request accepted";
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "FAILED: Request interrupted";
         }
     }
     
@@ -238,5 +411,115 @@ public class RefundService {
         response.setMessage(errorMessage);
         response.setSuccess(false);
         return response;
+    }
+    
+    /**
+     * Banka'dan gelen refund webhook'ını işle
+     */
+    public void processBankRefundWebhook(String bankType, String webhookData) {
+        try {
+            log.info("Processing {} refund webhook: {}", bankType, webhookData);
+            
+            // Webhook data'sını parse et (gerçek implementasyonda JSON parsing yapılır)
+            // Bu örnekte basit string parsing kullanıyoruz
+            String[] parts = webhookData.split("\\|");
+            if (parts.length >= 3) {
+                String gatewayRefundId = parts[0];
+                String status = parts[1];
+                String message = parts[2];
+                
+                // Gateway refund ID ile refund'ı bul
+                Optional<Refund> refundOpt = refundRepository.findByGatewayRefundId(gatewayRefundId);
+                if (refundOpt.isPresent()) {
+                    Refund refund = refundOpt.get();
+                    
+                    // Banka'dan gelen status'a göre güncelle
+                    Refund.RefundStatus newStatus = mapBankStatusToRefundStatus(status);
+                    refund.setStatus(newStatus);
+                    refund.setGatewayResponse(bankType + " webhook: " + message);
+                    refund.setUpdatedAt(LocalDateTime.now());
+                    
+                    // Eğer refund tamamlandıysa tarih ekle
+                    if (newStatus == Refund.RefundStatus.COMPLETED) {
+                        refund.setRefundDate(LocalDateTime.now());
+                    }
+                    
+                    refundRepository.save(refund);
+                    
+                    // Audit logging
+                    auditService.createEvent()
+                        .eventType("REFUND_STATUS_UPDATED_VIA_WEBHOOK")
+                        .severity(AuditLog.Severity.MEDIUM)
+                        .actor(bankType)
+                        .action("UPDATE")
+                        .resourceType("REFUND")
+                        .resourceId(refund.getRefundId())
+                        .additionalData("bankType", bankType)
+                        .additionalData("newStatus", newStatus.toString())
+                        .additionalData("webhookMessage", message)
+                        .complianceTag("PCI_DSS")
+                        .log();
+                    
+                    log.info("Refund status updated via {} webhook to {} for refund ID: {}", 
+                            bankType, newStatus, refund.getRefundId());
+                    
+                    // Merchant'a webhook gönder (refund durumu değişti)
+                    notifyMerchantAboutRefundStatus(refund);
+                    
+                } else {
+                    log.warn("Refund not found for gateway refund ID: {}", gatewayRefundId);
+                }
+            } else {
+                log.error("Invalid webhook data format: {}", webhookData);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing {} refund webhook: {}", bankType, e.getMessage());
+            throw new RuntimeException("Failed to process refund webhook", e);
+        }
+    }
+    
+    /**
+     * Banka status'unu refund status'una map et
+     */
+    private Refund.RefundStatus mapBankStatusToRefundStatus(String bankStatus) {
+        switch (bankStatus.toUpperCase()) {
+            case "SUCCESS":
+            case "COMPLETED":
+                return Refund.RefundStatus.COMPLETED;
+            case "FAILED":
+            case "REJECTED":
+                return Refund.RefundStatus.FAILED;
+            case "PROCESSING":
+            case "PENDING":
+                return Refund.RefundStatus.PROCESSING;
+            case "CANCELLED":
+                return Refund.RefundStatus.CANCELLED;
+            default:
+                log.warn("Unknown bank status: {}, defaulting to PROCESSING", bankStatus);
+                return Refund.RefundStatus.PROCESSING;
+        }
+    }
+    
+    /**
+     * Merchant'a refund durumu değişikliği hakkında bildirim gönder
+     */
+    private void notifyMerchantAboutRefundStatus(Refund refund) {
+        try {
+            log.info("Notifying merchant {} about refund status change for refund ID: {}", 
+                    refund.getMerchantId(), refund.getRefundId());
+            
+            // Bu kısım WebhookService ile entegre edilebilir
+            // Şimdilik sadece log yazıyoruz
+            String notificationMessage = String.format(
+                "Refund status updated to %s for amount %s %s. Refund ID: %s",
+                refund.getStatus(), refund.getAmount(), refund.getCurrency(), refund.getRefundId()
+            );
+            
+            log.info("Merchant notification: {}", notificationMessage);
+            
+        } catch (Exception e) {
+            log.error("Error notifying merchant about refund status: {}", e.getMessage());
+        }
     }
 }
