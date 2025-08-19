@@ -176,6 +176,7 @@ export interface PaymentLog {
   requestId?: string;
   merchantId?: string;
   paymentId?: string;
+  refundId?: string;
   apiAuthType?: string;
   latency?: number;
   urlPath?: string;
