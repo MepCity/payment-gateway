@@ -218,21 +218,32 @@ public class PayoutService {
         }
     }
     
-    public void deletePayout(Long id) {
+    public PayoutResponse deletePayout(Long id) {
         try {
             if (payoutRepository.existsById(id)) {
                 payoutRepository.deleteById(id);
                 log.info("Payout deleted with ID: {}", id);
+                
+                PayoutResponse response = new PayoutResponse();
+                response.setSuccess(true);
+                response.setMessage("Payout deleted successfully");
+                return response;
             } else {
-                throw new IllegalArgumentException("Payout not found with ID: " + id);
+                PayoutResponse response = new PayoutResponse();
+                response.setSuccess(false);
+                response.setMessage("Payout not found with ID: " + id);
+                return response;
             }
         } catch (Exception e) {
             log.error("Error deleting payout with ID {}: {}", id, e.getMessage(), e);
-            throw new RuntimeException("Failed to delete payout", e);
+            PayoutResponse response = new PayoutResponse();
+            response.setSuccess(false);
+            response.setMessage("Failed to delete payout: " + e.getMessage());
+            return response;
         }
     }
     
-    public BigDecimal getTotalPayoutAmountByMerchantId(String merchantId) {
+    public BigDecimal getTotalPayoutAmountByMerchant(String merchantId) {
         try {
             BigDecimal total = payoutRepository.sumAmountByStatusAndMerchantId(Payout.PayoutStatus.COMPLETED, merchantId);
             return total != null ? total : BigDecimal.ZERO;
