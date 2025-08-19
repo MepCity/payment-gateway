@@ -162,5 +162,46 @@ public class RefundController {
         }
     }
     
-
+    // POST - Bank webhook for refund status updates
+    @PostMapping("/webhooks/garanti")
+    public ResponseEntity<String> handleGarantiRefundWebhook(@RequestBody String webhookData) {
+        log.info("Received Garanti BBVA refund webhook: {}", webhookData);
+        
+        try {
+            // Process Garanti BBVA refund webhook
+            refundService.processBankRefundWebhook("GARANTI", webhookData);
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            log.error("Error processing Garanti BBVA refund webhook: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
+    }
+    
+    @PostMapping("/webhooks/isbank")
+    public ResponseEntity<String> handleIsBankRefundWebhook(@RequestBody String webhookData) {
+        log.info("Received İş Bankası refund webhook: {}", webhookData);
+        
+        try {
+            // Process İş Bankası refund webhook
+            refundService.processBankRefundWebhook("ISBANK", webhookData);
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            log.error("Error processing İş Bankası refund webhook: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
+    }
+    
+    @PostMapping("/webhooks/akbank")
+    public ResponseEntity<String> handleAkbankRefundWebhook(@RequestBody String webhookData) {
+        log.info("Received Akbank refund webhook: {}", webhookData);
+        
+        try {
+            // Process Akbank refund webhook
+            refundService.processBankRefundWebhook("AKBANK", webhookData);
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            log.error("Error processing Akbank refund webhook: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
+    }
 }

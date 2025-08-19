@@ -98,7 +98,7 @@ public class PayoutController {
     public ResponseEntity<PayoutResponse> updatePayoutStatus(
             @PathVariable Long id,
             @RequestParam Payout.PayoutStatus status) {
-        log.info("Updating payout status for ID: {} to: {}", id, status);
+        log.info("Updating payout status to {} for ID: {}", status, id);
         PayoutResponse response = payoutService.updatePayoutStatus(id, status);
         
         if (response.isSuccess()) {
@@ -121,30 +121,28 @@ public class PayoutController {
     }
     
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePayout(@PathVariable Long id) {
+    public ResponseEntity<PayoutResponse> deletePayout(@PathVariable Long id) {
         log.info("Deleting payout with ID: {}", id);
-        try {
-            payoutService.deletePayout(id);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            log.error("Error deleting payout: {}", e.getMessage());
-            return ResponseEntity.notFound().build();
+        PayoutResponse response = payoutService.deletePayout(id);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
         }
     }
     
     @GetMapping("/merchant/{merchantId}/total")
-    public ResponseEntity<BigDecimal> getTotalPayoutAmountByMerchantId(@PathVariable String merchantId) {
-        log.info("Calculating total payout amount for merchant: {}", merchantId);
-        BigDecimal total = payoutService.getTotalPayoutAmountByMerchantId(merchantId);
+    public ResponseEntity<BigDecimal> getTotalPayoutAmountByMerchant(@PathVariable String merchantId) {
+        log.info("Getting total payout amount for merchant: {}", merchantId);
+        BigDecimal total = payoutService.getTotalPayoutAmountByMerchant(merchantId);
         return ResponseEntity.ok(total);
     }
     
     @GetMapping("/count/status/{status}")
     public ResponseEntity<Long> getPayoutCountByStatus(@PathVariable Payout.PayoutStatus status) {
-        log.info("Counting payouts by status: {}", status);
-        long count = payoutService.getPayoutCountByStatus(status);
+        log.info("Getting payout count for status: {}", status);
+        Long count = payoutService.getPayoutCountByStatus(status);
         return ResponseEntity.ok(count);
     }
-    
-
 }

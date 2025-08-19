@@ -273,4 +273,171 @@ public class DisputeService {
         response.setSuccess(false);
         return response;
     }
+    
+    /**
+     * Dispute'a kanıt ekle (Merchant kanıt gönderir)
+     */
+    public DisputeResponse addEvidenceToDispute(Long id, String evidence, String additionalNotes) {
+        Optional<Dispute> disputeOpt = disputeRepository.findById(id);
+        if (disputeOpt.isPresent()) {
+            Dispute dispute = disputeOpt.get();
+            
+            // Mevcut kanıtı güncelle
+            String currentEvidence = dispute.getEvidence();
+            String updatedEvidence = currentEvidence != null ? 
+                currentEvidence + "\n\n--- YENİ KANIT ---\n" + evidence : evidence;
+            
+            dispute.setEvidence(updatedEvidence);
+            
+            // Ek notlar varsa ekle
+            if (additionalNotes != null && !additionalNotes.trim().isEmpty()) {
+                String currentNotes = dispute.getDescription();
+                String updatedNotes = currentNotes != null ? 
+                    currentNotes + "\n\nEk Notlar: " + additionalNotes : additionalNotes;
+                dispute.setDescription(updatedNotes);
+            }
+            
+            // Status'u güncelle
+            dispute.setStatus(Dispute.DisputeStatus.UNDER_REVIEW);
+            dispute.setUpdatedAt(LocalDateTime.now());
+            
+            Dispute updatedDispute = disputeRepository.save(dispute);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("DISPUTE_EVIDENCE_ADDED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("merchant")
+                .action("UPDATE")
+                .resourceType("DISPUTE")
+                .resourceId(dispute.getDisputeId())
+                .additionalData("evidenceLength", String.valueOf(evidence.length()))
+                .additionalData("additionalNotes", additionalNotes)
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("Evidence added to dispute with ID: {}", id);
+            return createDisputeResponse(updatedDispute, "Evidence added successfully", true);
+        } else {
+            return createErrorResponse("Dispute not found with ID: " + id);
+        }
+    }
+    
+    /**
+     * Dispute'ı değerlendir (Admin değerlendirir)
+     */
+    public DisputeResponse evaluateDispute(Long id, String decision, String adminNotes, String refundAmount) {
+        Optional<Dispute> disputeOpt = disputeRepository.findById(id);
+        if (disputeOpt.isPresent()) {
+            Dispute dispute = disputeOpt.get();
+            
+            // Decision'a göre status güncelle
+            switch (decision.toUpperCase()) {
+                case "APPROVED":
+                    dispute.setStatus(Dispute.DisputeStatus.WON);
+                    dispute.setGatewayResponse("Dispute approved - Customer wins");
+                    break;
+                case "REJECTED":
+                    dispute.setStatus(Dispute.DisputeStatus.LOST);
+                    dispute.setGatewayResponse("Dispute rejected - Merchant wins");
+                    break;
+                case "PARTIAL_REFUND":
+                    dispute.setStatus(Dispute.DisputeStatus.PARTIAL_REFUND);
+                    dispute.setGatewayResponse("Partial refund approved: " + refundAmount);
+                    break;
+                default:
+                    return createErrorResponse("Invalid decision: " + decision);
+            }
+            
+            // Admin notlarını ekle
+            if (adminNotes != null && !adminNotes.trim().isEmpty()) {
+                String currentNotes = dispute.getDescription();
+                String updatedNotes = currentNotes != null ? 
+                    currentNotes + "\n\nAdmin Notları: " + adminNotes : adminNotes;
+                dispute.setDescription(updatedNotes);
+            }
+            
+            dispute.setResolutionDate(LocalDateTime.now());
+            dispute.setUpdatedAt(LocalDateTime.now());
+            
+            Dispute updatedDispute = disputeRepository.save(dispute);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("DISPUTE_EVALUATED")
+                .severity(AuditLog.Severity.HIGH)
+                .actor("admin")
+                .action("UPDATE")
+                .resourceType("DISPUTE")
+                .resourceId(dispute.getDisputeId())
+                .additionalData("decision", decision)
+                .additionalData("adminNotes", adminNotes)
+                .additionalData("refundAmount", refundAmount)
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("Dispute evaluated with decision: {} for ID: {}", decision, id);
+            return createDisputeResponse(updatedDispute, "Dispute evaluated successfully", true);
+        } else {
+            return createErrorResponse("Dispute not found with ID: " + id);
+        }
+    }
+    
+    /**
+     * Merchant'a dispute sonucunu bildir
+     */
+    public DisputeResponse notifyMerchantAboutDisputeResult(Long id) {
+        Optional<Dispute> disputeOpt = disputeRepository.findById(id);
+        if (disputeOpt.isPresent()) {
+            Dispute dispute = disputeOpt.get();
+            
+            // Dispute çözülmüş olmalı
+            if (dispute.getStatus() == Dispute.DisputeStatus.OPENED || 
+                dispute.getStatus() == Dispute.DisputeStatus.UNDER_REVIEW) {
+                return createErrorResponse("Dispute not yet resolved");
+            }
+            
+            // Merchant'a webhook gönder (simulated)
+            String notificationMessage = generateMerchantNotification(dispute);
+            dispute.setGatewayResponse(dispute.getGatewayResponse() + "\n\nMerchant notified: " + notificationMessage);
+            dispute.setUpdatedAt(LocalDateTime.now());
+            
+            Dispute updatedDispute = disputeRepository.save(dispute);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("MERCHANT_NOTIFIED_DISPUTE_RESULT")
+                .severity(AuditLog.Severity.LOW)
+                .actor("system")
+                .action("NOTIFY")
+                .resourceType("DISPUTE")
+                .resourceId(dispute.getDisputeId())
+                .additionalData("notificationMessage", notificationMessage)
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("Merchant notified about dispute result for ID: {}", id);
+            return createDisputeResponse(updatedDispute, "Merchant notified successfully", true);
+        } else {
+            return createErrorResponse("Dispute not found with ID: " + id);
+        }
+    }
+    
+    /**
+     * Merchant notification mesajı oluştur
+     */
+    private String generateMerchantNotification(Dispute dispute) {
+        switch (dispute.getStatus()) {
+            case WON:
+                return "Customer won the dispute. Refund will be processed.";
+            case LOST:
+                return "Merchant won the dispute. No action required.";
+            case PARTIAL_REFUND:
+                return "Partial refund approved. Amount: " + dispute.getAmount();
+            case CLOSED:
+                return "Dispute closed. Final decision: " + dispute.getGatewayResponse();
+            default:
+                return "Dispute status updated: " + dispute.getStatus();
+        }
+    }
 }
