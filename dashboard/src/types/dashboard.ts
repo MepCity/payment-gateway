@@ -35,9 +35,11 @@ export interface RefundListItem {
   description?: string;
   gatewayResponse?: string;
   gatewayRefundId?: string;
+  gatewayTransactionId?: string;
   refundDate: string;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
 }
 
 export interface RefundDetail extends RefundListItem {

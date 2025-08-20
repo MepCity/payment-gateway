@@ -32,8 +32,9 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { CustomerDetail, CustomerStatus } from '../types/dashboard';
+import { CustomerDetail, CustomerStatus, RefundListItem } from '../types/dashboard';
 import StatusChip from '../components/common/StatusChip';
+import { dashboardAPI } from '../services/dashboardApi';
 
 const CustomerDetailPage: React.FC = () => {
   const { customerId } = useParams<{ customerId: string }>();
@@ -53,19 +54,40 @@ const CustomerDetailPage: React.FC = () => {
     setError(null);
     
     try {
-      // Get customers from localStorage
-      const storedCustomers = JSON.parse(localStorage.getItem('customers') || '[]');
-      const foundCustomer = storedCustomers.find((c: CustomerDetail) => c.customerId === customerId);
+      // Instead of storing customer database, derive customer info from payments
+      const storedPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+      const customerPayments = storedPayments.filter((payment: any) => 
+        payment.customerId === customerId
+      );
       
-      if (!foundCustomer) {
-        setError('Customer not found');
+      if (customerPayments.length === 0) {
+        setError('No payments found for this customer');
         return;
       }
       
-      setCustomer(foundCustomer);
+      // Create customer info from first payment
+      const firstPayment = customerPayments[0];
+      const customerInfo: CustomerDetail = {
+        id: Date.now(),
+        customerId: customerId,
+        customerName: firstPayment.customerName || firstPayment.cardHolderName || 'Unknown Customer',
+        email: firstPayment.customerEmail || 'no-email@example.com',
+        phone: firstPayment.customerPhone,
+        description: `Customer derived from payment ${firstPayment.paymentId}`,
+        address: firstPayment.customerAddress,
+        status: 'ACTIVE' as any,
+        createdAt: firstPayment.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastPaymentAt: firstPayment.createdAt || new Date().toISOString(),
+        totalPayments: customerPayments.length,
+        totalAmount: customerPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
+        currency: firstPayment.currency || 'USD'
+      };
       
-      // Load payment data from localStorage
-      loadPaymentData(foundCustomer);
+      setCustomer(customerInfo);
+      
+      // Load payment data using the derived customer info
+      await loadPaymentData(customerInfo, customerPayments);
       
     } catch (err: any) {
       setError(err.message || 'Failed to load customer details');
@@ -74,27 +96,10 @@ const CustomerDetailPage: React.FC = () => {
     }
   };
 
-  const loadPaymentData = (customer: CustomerDetail) => {
+  const loadPaymentData = async (customer: CustomerDetail, customerPayments: any[]) => {
     try {
-      // Get payments from localStorage (from frontend payment creation)
-      const storedPayments = JSON.parse(localStorage.getItem('payments') || '[]');
-      console.log('Loading payments from localStorage:', storedPayments);
-      console.log('Current customer:', customer);
-      
-      // Match payments with customer using customerId instead of cardHolderName
-      const customerPayments = storedPayments.filter((payment: any) => {
-        // Check if customerId matches exactly
-        const paymentCustomerId = payment.customerId || '';
-        const currentCustomerId = customer.customerId || '';
-        
-        console.log('Comparing customer IDs:', { 
-          paymentCustomerId, 
-          currentCustomerId, 
-          matches: paymentCustomerId === currentCustomerId 
-        });
-        
-        return paymentCustomerId === currentCustomerId;
-      });
+      console.log('Loading payment data for customer:', customer);
+      console.log('Customer payments:', customerPayments);
       
       console.log('Filtered payments for customer:', customerPayments);
       
@@ -121,26 +126,26 @@ const CustomerDetailPage: React.FC = () => {
         paymentType: 'cred'
       })));
       
-      // Get refunds for this customer's payments
-      const storedRefunds = JSON.parse(localStorage.getItem('refunds') || '[]');
-      const customerRefunds = storedRefunds.filter((refund: any) => {
-        // Find if this refund belongs to any of the customer's payments
-        return customerPayments.some((payment: any) => 
-          payment.paymentId === refund.paymentId || payment.id === refund.paymentId
-        );
-      });
-      
-      console.log('Filtered refunds for customer:', customerRefunds);
-      
-      setRefunds(customerRefunds.map((refund: any) => ({
-        refundId: refund.refundId || refund.id,
-        paymentId: refund.paymentId,
-        status: refund.status || 'PENDING',
-        amount: refund.amount || 0,
-        currency: refund.currency || 'USD',
-        reason: refund.reason || 'Customer request',
-        createdAt: refund.createdAt || new Date().toISOString()
-      })));
+      // Get refunds for this customer's payments using the same API as RefundsPage
+      try {
+        const refundsResponse = await dashboardAPI.getRefunds('TEST_MERCHANT');
+        const allRefunds = refundsResponse.refunds;
+        
+        // Filter refunds that belong to this customer's payments
+        const customerRefunds = allRefunds.filter((refund: RefundListItem) => {
+          return customerPayments.some((payment: any) => 
+            payment.paymentId === refund.paymentId || payment.id === refund.paymentId
+          );
+        });
+        
+        console.log('Filtered refunds for customer:', customerRefunds);
+        
+        setRefunds(customerRefunds);
+      } catch (error) {
+        console.error('Error loading refunds:', error);
+        // Fallback to empty array if API fails
+        setRefunds([]);
+      }
       
     } catch (error) {
       console.error('Error loading payment data:', error);
@@ -525,7 +530,7 @@ const CustomerDetailPage: React.FC = () => {
                       <TableCell>{refund.refundId}</TableCell>
                       <TableCell>{refund.paymentId}</TableCell>
                       <TableCell>
-                        <StatusChip status={refund.status as CustomerStatus} />
+                        <StatusChip status={refund.status} />
                       </TableCell>
                       <TableCell>{formatAmount(refund.amount, refund.currency)}</TableCell>
                       <TableCell>{refund.currency}</TableCell>
