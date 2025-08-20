@@ -211,6 +211,90 @@ public class RefundService {
         }
     }
     
+    public RefundResponse completeRefund(String refundId) {
+        try {
+            Optional<Refund> refundOpt = refundRepository.findByRefundId(refundId);
+            if (refundOpt.isEmpty()) {
+                return createErrorResponse("Refund not found with ID: " + refundId);
+            }
+            
+            Refund refund = refundOpt.get();
+            
+            if (refund.getStatus() != Refund.RefundStatus.PROCESSING) {
+                return createErrorResponse("Only PROCESSING refunds can be completed. Current status: " + refund.getStatus());
+            }
+            
+            // Manuel olarak tamamla
+            refund.setStatus(Refund.RefundStatus.COMPLETED);
+            refund.setGatewayResponse("Refund processed successfully - Manually approved");
+            refund.setUpdatedAt(LocalDateTime.now());
+            
+            Refund savedRefund = refundRepository.save(refund);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("REFUND_COMPLETED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("admin")
+                .action("UPDATE")
+                .resourceType("REFUND")
+                .resourceId(refundId)
+                .newValues(savedRefund)
+                .additionalData("action", "manual_completion")
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("Refund {} manually completed", refundId);
+            return createRefundResponse(savedRefund, "Refund completed successfully", true);
+            
+        } catch (Exception e) {
+            log.error("Error completing refund: {}", e.getMessage());
+            return createErrorResponse("Failed to complete refund: " + e.getMessage());
+        }
+    }
+    
+    public RefundResponse cancelRefund(String refundId) {
+        try {
+            Optional<Refund> refundOpt = refundRepository.findByRefundId(refundId);
+            if (refundOpt.isEmpty()) {
+                return createErrorResponse("Refund not found with ID: " + refundId);
+            }
+            
+            Refund refund = refundOpt.get();
+            
+            if (refund.getStatus() == Refund.RefundStatus.COMPLETED) {
+                return createErrorResponse("Cannot cancel a completed refund");
+            }
+            
+            // Manuel olarak iptal et
+            refund.setStatus(Refund.RefundStatus.FAILED);
+            refund.setGatewayResponse("Refund cancelled - Manually rejected");
+            refund.setUpdatedAt(LocalDateTime.now());
+            
+            Refund savedRefund = refundRepository.save(refund);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("REFUND_CANCELLED")
+                .severity(AuditLog.Severity.HIGH)
+                .actor("admin")
+                .action("UPDATE")
+                .resourceType("REFUND")
+                .resourceId(refundId)
+                .newValues(savedRefund)
+                .additionalData("action", "manual_cancellation")
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("Refund {} manually cancelled", refundId);
+            return createRefundResponse(savedRefund, "Refund cancelled successfully", true);
+            
+        } catch (Exception e) {
+            log.error("Error cancelling refund: {}", e.getMessage());
+            return createErrorResponse("Failed to cancel refund: " + e.getMessage());
+        }
+    }
+    
     private String generateRefundId() {
         return "REF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
@@ -277,6 +361,10 @@ public class RefundService {
             return "ISBANK";
         } else if (transactionId.startsWith("AKB")) {
             return "AKBANK";
+        } else if (transactionId.startsWith("TXN-")) {
+            // TXN- ile başlayan transaction ID'ler için default olarak Garanti kullan
+            log.info("Transaction ID {} TXN- format detected, using GARANTI as default bank", transactionId);
+            return "GARANTI";
         } else {
             return "UNKNOWN";
         }

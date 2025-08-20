@@ -68,7 +68,7 @@ export const dashboardAPI = {
   getPaymentStats: async (merchantId: string): Promise<PaymentStats> => {
     try {
       // For test mode, get all payments regardless of merchant ID
-      const response = await dashboardApiClient.get(`/api/v1/payments`);
+      const response = await dashboardApiClient.get(`/v1/payments`);
       const payments = response.data;
       
       // Calculate stats from payments
@@ -108,7 +108,7 @@ export const dashboardAPI = {
     try {
       // For test mode, get all payments regardless of merchant ID
       console.log('Fetching payments from backend...');
-      const response = await dashboardApiClient.get(`/api/v1/payments`);
+      const response = await dashboardApiClient.get(`/v1/payments`);
       let payments = response.data;
       console.log('Backend payments response:', payments);
 
@@ -222,11 +222,11 @@ export const dashboardAPI = {
       // Try to get by payment ID first, then by transaction ID
       let response;
       try {
-        response = await dashboardApiClient.get(`/api/v1/payments/payment/${paymentId}`);
+        response = await dashboardApiClient.get(`/v1/payments/payment/${paymentId}`);
       } catch (error: any) {
         if (error.response?.status === 404) {
           // Try with transaction ID
-          response = await dashboardApiClient.get(`/api/v1/payments/transaction/${paymentId}`);
+          response = await dashboardApiClient.get(`/v1/payments/transaction/${paymentId}`);
         } else {
           throw error;
         }
@@ -288,10 +288,10 @@ export const dashboardAPI = {
             id: '1',
             level: 'INFO' as const,
             timestamp: convertDate(payment.createdAt),
-            message: `POST /api/v1/payments - Payment created`,
+            message: `POST /v1/payments - Payment created`,
             source: 'API' as const,
             latency: 150,
-            urlPath: '/api/v1/payments'
+            urlPath: '/v1/payments'
           },
           {
             id: '2',
@@ -313,7 +313,7 @@ export const dashboardAPI = {
   // Get payment events and logs (like Hyperswitch)
   getPaymentEvents: async (paymentId: string) => {
     // This will be implemented when backend supports it
-    // const response = await dashboardApiClient.get(`/api/v1/payments/${paymentId}/events`);
+    // const response = await dashboardApiClient.get(`/v1/payments/${paymentId}/events`);
     // return response.data;
     
     // Mock data for now
@@ -341,10 +341,10 @@ export const dashboardAPI = {
           id: '1',
           level: 'INFO' as const,
           timestamp: new Date().toISOString(),
-          message: 'POST /api/v1/payments - 200 OK',
+          message: 'POST /v1/payments - 200 OK',
           source: 'API' as const,
           latency: 150,
-          urlPath: '/api/v1/payments'
+          urlPath: '/v1/payments'
         }
       ]
     };
@@ -352,7 +352,7 @@ export const dashboardAPI = {
 
   // Sync payment status (like Hyperswitch sync button)
   syncPaymentStatus: async (paymentId: string) => {
-    const response = await dashboardApiClient.post(`/api/v1/payments/${paymentId}/sync`);
+    const response = await dashboardApiClient.post(`/v1/payments/${paymentId}/sync`);
     return response.data;
   },
 
@@ -362,7 +362,7 @@ export const dashboardAPI = {
   getRefundStats: async (merchantId: string): Promise<RefundStats> => {
     try {
       // For test mode, get all refunds regardless of merchant ID
-      const response = await dashboardApiClient.get(`/api/v1/refunds`);
+      const response = await dashboardApiClient.get(`/v1/refunds`);
       const refunds = response.data;
       
       // Calculate stats from refunds
@@ -402,7 +402,7 @@ export const dashboardAPI = {
     try {
       // For test mode, get all refunds regardless of merchant ID
       console.log('Fetching refunds from backend...');
-      const response = await dashboardApiClient.get(`/api/v1/refunds`);
+      const response = await dashboardApiClient.get(`/v1/refunds`);
       let refunds = response.data;
       console.log('Backend refunds response:', refunds);
 
@@ -493,7 +493,7 @@ export const dashboardAPI = {
       // Try to get by refund ID first
       let response;
       try {
-        response = await dashboardApiClient.get(`/api/v1/refunds/refund-id/${refundId}`);
+        response = await dashboardApiClient.get(`/v1/refunds/refund-id/${refundId}`);
       } catch (error: any) {
         if (error.response?.status === 404) {
           // Try with payment ID or transaction ID as fallback
@@ -555,10 +555,10 @@ export const dashboardAPI = {
             id: '1',
             level: 'INFO' as const,
             timestamp: convertDate(refund.createdAt),
-            message: `POST /api/v1/refunds - Refund created`,
+            message: `POST /v1/refunds - Refund created`,
             source: 'API' as const,
             latency: 150,
-            urlPath: '/api/v1/refunds'
+            urlPath: '/v1/refunds'
           },
           {
             id: '2',
@@ -589,7 +589,7 @@ export const dashboardAPI = {
     description?: string;
   }) => {
     try {
-      const response = await dashboardApiClient.post('/api/v1/refunds', refundData);
+      const response = await dashboardApiClient.post('/v1/refunds', refundData);
       return response.data;
     } catch (error) {
       console.error('Create refund error:', error);

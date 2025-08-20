@@ -17,6 +17,8 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     
     Optional<Refund> findByPaymentId(String paymentId);
     
+    Optional<Refund> findByGatewayRefundId(String gatewayRefundId);
+    
     List<Refund> findByTransactionId(String transactionId);
     
     List<Refund> findByMerchantId(String merchantId);
@@ -30,6 +32,9 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     List<Refund> findByMerchantIdAndStatus(String merchantId, Refund.RefundStatus status);
     
     List<Refund> findByCustomerIdAndStatus(String customerId, Refund.RefundStatus status);
+    
+    // Scheduler için PROCESSING durumundaki eski refund'ları bul
+    List<Refund> findByStatusAndCreatedAtBefore(Refund.RefundStatus status, LocalDateTime createdAt);
     
     @Query("SELECT r FROM Refund r WHERE r.refundDate BETWEEN :startDate AND :endDate")
     List<Refund> findByDateRange(@Param("startDate") LocalDateTime startDate, 
@@ -50,6 +55,4 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     boolean existsByRefundId(String refundId);
     
     boolean existsByGatewayRefundId(String gatewayRefundId);
-
-    Optional<Refund> findByGatewayRefundId(String gatewayRefundId);
 }

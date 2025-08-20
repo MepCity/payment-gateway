@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/merchant-dashboard")
+@RequestMapping("/v1/merchant-dashboard")
 @RequiredArgsConstructor
 @Slf4j
 public class MerchantDashboardController {

@@ -36,6 +36,34 @@ public class RefundController {
         }
     }
     
+    // PUT - Complete/Approve a refund manually (for admin dashboard)
+    @PutMapping("/{refundId}/complete")
+    public ResponseEntity<RefundResponse> completeRefund(@PathVariable String refundId) {
+        log.info("Manually completing refund: {}", refundId);
+        
+        RefundResponse response = refundService.completeRefund(refundId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // PUT - Cancel/Reject a refund manually
+    @PutMapping("/{refundId}/cancel")
+    public ResponseEntity<RefundResponse> cancelRefund(@PathVariable String refundId) {
+        log.info("Manually cancelling refund: {}", refundId);
+        
+        RefundResponse response = refundService.cancelRefund(refundId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
     // GET - Get refund by ID
     @GetMapping("/{id}")
     public ResponseEntity<RefundResponse> getRefundById(@PathVariable Long id) {

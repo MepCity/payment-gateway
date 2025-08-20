@@ -21,7 +21,7 @@ import java.util.Map;
  * Otomatik bank detection ve multi-format support
  */
 @RestController
-@RequestMapping("/api/v1/3dsecure")
+@RequestMapping("/v1/3dsecure")
 @RequiredArgsConstructor
 @Slf4j
 public class ThreeDSecureController {
