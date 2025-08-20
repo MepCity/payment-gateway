@@ -77,9 +77,12 @@ public class RefundService {
             refund.setDescription(request.getDescription());
             refund.setRefundDate(LocalDateTime.now());
             
-            // Process refund through gateway (simulated)
-            Refund.RefundStatus finalStatus = processRefundThroughGateway(refund);
-            refund.setStatus(finalStatus);
+            // İlk olarak PROCESSING status'u ile başla
+            refund.setStatus(Refund.RefundStatus.PROCESSING);
+            refund.setGatewayResponse("Refund request sent to bank - processing");
+            refund.setGatewayRefundId("GREF-" + UUID.randomUUID().toString().substring(0, 8));
+            
+            // Bank webhook'u bekleyecek, şimdilik PROCESSING olarak bırak
             
             // Save refund
             Refund savedRefund = refundRepository.save(refund);
