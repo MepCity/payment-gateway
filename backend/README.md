@@ -65,11 +65,12 @@ The application will start on `http://localhost:8080/api`
 ### Base URLs
 ```
 Payments: http://localhost:8080/api/v1/payments
-Customers: http://localhost:8080/api/v1/customers
-Mandates: http://localhost:8080/api/v1/mandates
-Refunds: http://localhost:8080/api/v1/refunds
-Disputes: http://localhost:8080/api/v1/disputes
-Payouts: http://localhost:8080/api/v1/payouts
+Bank Webhooks: http://localhost:8080/api/v1/bank-webhooks
+Refunds: http://localhost:8080/v1/refunds
+Disputes: http://localhost:8080/v1/disputes
+Payouts: http://localhost:8080/v1/payouts
+System Webhooks: http://localhost:8080/api/v1/webhooks
+Merchants: http://localhost:8080/api/v1/merchants
 ```
 
 ### Payment Endpoints
@@ -164,54 +165,20 @@ PUT /api/v1/payments/{id}/status?status=COMPLETED
 DELETE /api/v1/payments/{id}
 ```
 
-#### 10. Refund Payment (POST)
-```http
-POST /api/v1/payments/{id}/refund
-```
 
-#### 11. Health Check (GET)
-```http
-GET /api/v1/payments/health
-```
 
-### Bank Webhook Endpoints
-
-#### 1. Garanti BBVA Webhook (POST)
+#### 11. Bank Webhooks
 ```http
 POST /api/v1/bank-webhooks/garanti
-Content-Type: application/json
-
-{
-  "eventType": "3D_SECURE_RESULT",
-  "orderId": "ORD-123456",
-  "status": "SUCCESS",
-  "authCode": "AUTH123"
-}
-```
-
-#### 2. İş Bankası Webhook (POST)
-```http
 POST /api/v1/bank-webhooks/isbank
-Content-Type: application/json
-
-{
-  "eventType": "PAYMENT_STATUS_CHANGE",
-  "orderId": "ORD-123456",
-  "status": "COMPLETED"
-}
+POST /api/v1/bank-webhooks/akbank
 ```
 
-#### 3. Akbank Webhook (POST)
-```http
-POST /api/v1/bank-webhooks/akbank
-Content-Type: application/json
 
-{
-  "eventType": "SETTLEMENT",
-  "orderId": "ORD-123456",
-  "settledAmount": "99.99",
-  "settlementDate": "2024-01-15"
-}
+
+#### 10. Health Check (GET)
+```http
+GET /actuator/health
 ```
 
 ### Customer Endpoints
@@ -227,9 +194,6 @@ Content-Type: application/json
   "email": "john.doe@example.com",
   "phoneNumber": "+1234567890",
   "address": "123 Main Street",
-  "city": "New York",
-  "country": "USA",
-  "postalCode": "10001",
   "notes": "VIP customer"
 }
 ```
@@ -259,24 +223,16 @@ GET /api/v1/customers
 GET /api/v1/customers/status/{status}
 ```
 
-#### 7. Get Customers by City (GET)
-```http
-GET /api/v1/customers/city/{city}
-```
 
-#### 8. Get Customers by Country (GET)
-```http
-GET /api/v1/customers/country/{country}
-```
 
 #### 9. Search Customers by Name (GET)
 ```http
 GET /api/v1/customers/search?name=John
 ```
 
-#### 10. Update Customer (PUT)
+#### 10. Update Customer (POST)
 ```http
-PUT /api/v1/customers/{id}
+POST /api/v1/customers/{id}/update
 Content-Type: application/json
 
 {
@@ -285,9 +241,6 @@ Content-Type: application/json
   "email": "john.smith@example.com",
   "phoneNumber": "+1234567890",
   "address": "456 Oak Avenue",
-  "city": "Los Angeles",
-  "country": "USA",
-  "postalCode": "90210",
   "notes": "Updated customer info"
 }
 ```
@@ -756,7 +709,7 @@ GET /api/v1/payouts/count/status/COMPLETED
 
 #### 14. Health Check (GET)
 ```http
-GET /api/v1/payouts/health
+GET /actuator/health
 ```
 
 ### Payout Status Flow

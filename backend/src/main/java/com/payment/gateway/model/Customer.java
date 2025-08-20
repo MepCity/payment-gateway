@@ -37,15 +37,7 @@ public class Customer {
     
     @Column(nullable = false)
     private String address;
-    
-    @Column(nullable = false)
-    private String city;
-    
-    @Column(nullable = false)
-    private String country;
-    
-    @Column(nullable = false, length = 10)
-    private String postalCode;
+ 
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

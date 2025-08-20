@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/v1/refunds")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class RefundController {
     
     private final RefundService refundService;
@@ -32,6 +31,34 @@ public class RefundController {
         
         if (response.isSuccess()) {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // PUT - Complete/Approve a refund manually (for admin dashboard)
+    @PutMapping("/{refundId}/complete")
+    public ResponseEntity<RefundResponse> completeRefund(@PathVariable String refundId) {
+        log.info("Manually completing refund: {}", refundId);
+        
+        RefundResponse response = refundService.completeRefund(refundId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // PUT - Cancel/Reject a refund manually
+    @PutMapping("/{refundId}/cancel")
+    public ResponseEntity<RefundResponse> cancelRefund(@PathVariable String refundId) {
+        log.info("Manually cancelling refund: {}", refundId);
+        
+        RefundResponse response = refundService.cancelRefund(refundId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.badRequest().body(response);
         }
@@ -163,9 +190,46 @@ public class RefundController {
         }
     }
     
-    // Health check endpoint
-    @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Refund Service is running!");
+    // POST - Bank webhook for refund status updates
+    @PostMapping("/webhooks/garanti")
+    public ResponseEntity<String> handleGarantiRefundWebhook(@RequestBody String webhookData) {
+        log.info("Received Garanti BBVA refund webhook: {}", webhookData);
+        
+        try {
+            // Process Garanti BBVA refund webhook
+            refundService.processBankRefundWebhook("GARANTI", webhookData);
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            log.error("Error processing Garanti BBVA refund webhook: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
+    }
+    
+    @PostMapping("/webhooks/isbank")
+    public ResponseEntity<String> handleIsBankRefundWebhook(@RequestBody String webhookData) {
+        log.info("Received İş Bankası refund webhook: {}", webhookData);
+        
+        try {
+            // Process İş Bankası refund webhook
+            refundService.processBankRefundWebhook("ISBANK", webhookData);
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            log.error("Error processing İş Bankası refund webhook: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
+    }
+    
+    @PostMapping("/webhooks/akbank")
+    public ResponseEntity<String> handleAkbankRefundWebhook(@RequestBody String webhookData) {
+        log.info("Received Akbank refund webhook: {}", webhookData);
+        
+        try {
+            // Process Akbank refund webhook
+            refundService.processBankRefundWebhook("AKBANK", webhookData);
+            return ResponseEntity.ok("Webhook processed successfully");
+        } catch (Exception e) {
+            log.error("Error processing Akbank refund webhook: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
     }
 }

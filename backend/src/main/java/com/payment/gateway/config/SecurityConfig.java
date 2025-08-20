@@ -29,7 +29,7 @@ public class SecurityConfig {
                 // Public endpoints - Allow all for testing
                 .requestMatchers("/v1/blacklist/**").permitAll() // Blacklist endpoint'leri public
                 .requestMatchers("/v1/payments/**").permitAll()  // Payment endpoint'leri public  
-                .requestMatchers("/api/v1/bank-webhooks/**").permitAll()    // Bank webhook'ları public
+                .requestMatchers("/bank-webhooks/**").permitAll()    // Bank webhook'ları public
                 .requestMatchers("/mock/**").permitAll()             // Mock endpoint'leri public
                 .requestMatchers("/auth/**").permitAll()             // Auth endpoint'leri public
                 .requestMatchers("/public/**").permitAll()           // Public endpoint'ler

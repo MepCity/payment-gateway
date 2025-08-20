@@ -1,0 +1,80 @@
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+  
+  html, body, #root {
+    height: 100%;
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+  }
+  
+  /* Custom styles for dashboard */
+  .dashboard-container {
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .sidebar-transition {
+    transition: width 0.3s ease-in-out;
+  }
+  
+  /* Status badges */
+  .status-completed {
+    background-color: #4caf50;
+    color: white;
+  }
+  
+  .status-pending {
+    background-color: #ff9800;
+    color: white;
+  }
+  
+  .status-failed {
+    background-color: #f44336;
+    color: white;
+  }
+  
+  .status-processing {
+    background-color: #2196f3;
+    color: white;
+  }
+  
+  .status-cancelled {
+    background-color: #9e9e9e;
+    color: white;
+  }
+  
+  .status-refunded {
+    background-color: #673ab7;
+    color: white;
+  }

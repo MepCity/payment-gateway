@@ -155,8 +155,5 @@ public class WebhookController {
         }
     }
     
-    @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("Webhook service is healthy");
-    }
+
 }

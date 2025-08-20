@@ -106,6 +106,31 @@ const PaymentPage: React.FC = () => {
         message: 'Ödeme başarıyla oluşturuldu!',
         data: response
       });
+
+      // Save payment to localStorage for customer detail page
+      const paymentData = {
+        id: Date.now(),
+        paymentId: response.paymentId,
+        transactionId: response.transactionId,
+        merchantId: formData.merchantId,
+        customerId: formData.customerId,
+        amount: formData.amount,
+        currency: formData.currency,
+        status: 'COMPLETED', // Changed from 'SUCCEEDED' to 'COMPLETED'
+        paymentMethod: formData.paymentMethod,
+        cardNumber: formData.cardNumber,
+        cardHolderName: formData.cardHolderName,
+        expiryDate: formData.expiryDate,
+        description: formData.description,
+        createdAt: new Date().toISOString()
+      };
+
+      // Save to localStorage
+      const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+      existingPayments.push(paymentData);
+      localStorage.setItem('payments', JSON.stringify(existingPayments));
+      console.log('Payment saved to localStorage:', paymentData);
+
     } catch (error: any) {
       console.error('Payment error details:', error);
       

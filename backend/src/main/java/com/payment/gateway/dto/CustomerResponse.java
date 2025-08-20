@@ -19,9 +19,6 @@ public class CustomerResponse {
     private String email;
     private String phoneNumber;
     private String address;
-    private String city;
-    private String country;
-    private String postalCode;
     private Customer.CustomerStatus status;
     private String notes;
     private LocalDateTime createdAt;

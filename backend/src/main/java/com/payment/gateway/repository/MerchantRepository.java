@@ -1,6 +1,7 @@
 package com.payment.gateway.repository;
 
 import com.payment.gateway.model.Merchant;
+import jakarta.validation.constraints.Email;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -53,4 +54,6 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long> {
      * Merchant ID'nin varlığını kontrol et
      */
     boolean existsByMerchantId(String merchantId);
+
+    boolean existsByEmail(String email);
 }

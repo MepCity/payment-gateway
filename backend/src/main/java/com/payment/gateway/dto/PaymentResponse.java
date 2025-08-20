@@ -18,7 +18,7 @@ public class PaymentResponse {
     private String transactionId;
     private String merchantId;
     private String customerId;
-    private String amount;
+    private BigDecimal amount;
     private String currency;
     private Payment.PaymentStatus status;
     private Payment.PaymentMethod paymentMethod;

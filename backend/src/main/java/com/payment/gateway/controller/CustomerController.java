@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/v1/customers")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class CustomerController {
     
     private final CustomerService customerService;
@@ -96,24 +95,6 @@ public class CustomerController {
         return ResponseEntity.ok(customers);
     }
     
-    // GET - Get customers by city
-    @GetMapping("/city/{city}")
-    public ResponseEntity<List<CustomerResponse>> getCustomersByCity(@PathVariable String city) {
-        log.info("Retrieving customers in city: {}", city);
-        
-        List<CustomerResponse> customers = customerService.getCustomersByCity(city);
-        return ResponseEntity.ok(customers);
-    }
-    
-    // GET - Get customers by country
-    @GetMapping("/country/{country}")
-    public ResponseEntity<List<CustomerResponse>> getCustomersByCountry(@PathVariable String country) {
-        log.info("Retrieving customers in country: {}", country);
-        
-        List<CustomerResponse> customers = customerService.getCustomersByCountry(country);
-        return ResponseEntity.ok(customers);
-    }
-    
     // GET - Search customers by name
     @GetMapping("/search")
     public ResponseEntity<List<CustomerResponse>> searchCustomersByName(@RequestParam String name) {
@@ -123,8 +104,8 @@ public class CustomerController {
         return ResponseEntity.ok(customers);
     }
     
-    // PUT - Update customer
-    @PutMapping("/{id}/update")
+    // POST - Update customer
+    @PostMapping("/{id}/update")
     public ResponseEntity<CustomerResponse> updateCustomer(@PathVariable Long id, @Valid @RequestBody CustomerRequest request) {
         log.info("Updating customer with ID: {}", id);
         
@@ -167,9 +148,5 @@ public class CustomerController {
         }
     }
     
-    // Health check endpoint
-    @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Customer Service is running!");
-    }
+
 }

@@ -140,9 +140,5 @@ public class MandateController {
         }
     }
     
-    // Health check endpoint
-    @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Mandate Service is running!");
-    }
+
 }
