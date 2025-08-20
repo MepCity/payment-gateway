@@ -6,7 +6,6 @@ import {
   CardContent,
   Button,
   Chip,
-  Divider,
   Alert,
   CircularProgress,
   Accordion,
@@ -21,8 +20,6 @@ import {
   Paper,
   Tabs,
   Tab,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -32,12 +29,12 @@ import {
   Warning,
   Error as ErrorIcon,
   CheckCircle,
-  ContentCopy,
-  OpenInNew,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { RefundDetail, RefundStatus } from '../types/dashboard';
+import { useAuth } from '../contexts/AuthContext';
+import { dashboardAPI } from '../services/dashboardApi';
+import { RefundDetail, RefundEvent, RefundLog } from '../types/dashboard';
 import StatusChip from '../components/common/StatusChip';
 
 interface TabPanelProps {
@@ -63,8 +60,11 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
 const RefundDetailPage: React.FC = () => {
   const { refundId } = useParams<{ refundId: string }>();
   const navigate = useNavigate();
+  const { state: authState } = useAuth();
   
   const [refund, setRefund] = useState<RefundDetail | null>(null);
+  const [events, setEvents] = useState<RefundEvent[]>([]);
+  const [logs, setLogs] = useState<RefundLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
@@ -76,18 +76,15 @@ const RefundDetailPage: React.FC = () => {
     setError(null);
     
     try {
-      // Get refunds from localStorage
-      const storedRefunds = JSON.parse(localStorage.getItem('refunds') || '[]');
-      const foundRefund = storedRefunds.find((r: RefundDetail) => r.refundId === refundId);
+      // Real API calls
+      const refundDetail = await dashboardAPI.getRefundDetail(refundId);
       
-      if (!foundRefund) {
-        setError('Refund not found');
-        return;
-      }
-      
-      setRefund(foundRefund);
+      setRefund(refundDetail);
+      setEvents(refundDetail.events || []);
+      setLogs(refundDetail.logs || []);
       
     } catch (err: any) {
+      console.error('Error loading refund detail:', err);
       setError(err.message || 'Failed to load refund details');
     } finally {
       setLoading(false);
@@ -110,10 +107,6 @@ const RefundDetailPage: React.FC = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
   const formatAmount = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -123,6 +116,23 @@ const RefundDetailPage: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM dd, yyyy HH:mm:ss');
+  };
+
+  const getEventIcon = (status: string) => {
+    switch (status) {
+      case 'SUCCESS':
+        return <CheckCircle color="success" />;
+      case 'FAILED':
+        return <ErrorIcon color="error" />;
+      case 'INFO':
+        return <Info color="info" />;
+      default:
+        return <Warning color="warning" />;
+    }
+  };
+
+  const getReasonLabel = (reason: string) => {
+    return reason.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
   };
 
   if (loading) {
@@ -223,10 +233,10 @@ const RefundDetailPage: React.FC = () => {
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Last Updated
+                    Refund Date
                   </Typography>
                   <Typography variant="body2">
-                    {formatDate(refund.updatedAt)}
+                    {formatDate(refund.refundDate)}
                   </Typography>
                 </Box>
                 
@@ -235,7 +245,7 @@ const RefundDetailPage: React.FC = () => {
                     Amount Refunded
                   </Typography>
                   <Typography variant="body2">
-                    {refund.status === RefundStatus.COMPLETED ? formatAmount(refund.amount, refund.currency) : '$0.00'}
+                    {formatAmount(refund.amount, refund.currency)}
                   </Typography>
                 </Box>
                 
@@ -243,63 +253,26 @@ const RefundDetailPage: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Refund ID
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                      {refund.refundId}
-                    </Typography>
-                    <Tooltip title="Copy">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => copyToClipboard(refund.refundId)}
-                      >
-                        <ContentCopy fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {refund.refundId}
+                  </Typography>
                 </Box>
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
                     Payment ID
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                      {refund.paymentId}
-                    </Typography>
-                    <Tooltip title="Copy">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => copyToClipboard(refund.paymentId)}
-                      >
-                        <ContentCopy fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="View Payment">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => navigate(`/dashboard/payments/${refund.paymentId}`)}
-                      >
-                        <OpenInNew fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {refund.paymentId}
+                  </Typography>
                 </Box>
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Gateway Transaction ID
+                    Gateway Refund ID
                   </Typography>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    {refund.gatewayTransactionId || 'N/A'}
-                  </Typography>
-                </Box>
-                
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Error Message
-                  </Typography>
-                  <Typography variant="body2">
-                    {refund.status === RefundStatus.FAILED ? refund.gatewayResponse || 'Refund failed' : 'N/A'}
+                    {refund.gatewayRefundId || 'N/A'}
                   </Typography>
                 </Box>
               </Box>
@@ -340,6 +313,15 @@ const RefundDetailPage: React.FC = () => {
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
+                    Transaction ID
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {refund.transactionId}
+                  </Typography>
+                </Box>
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
                     Currency
                   </Typography>
                   <Typography variant="body2">
@@ -349,38 +331,34 @@ const RefundDetailPage: React.FC = () => {
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
+                    Refund Reason
+                  </Typography>
+                  <Chip
+                    label={getReasonLabel(refund.reason)}
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                  />
+                </Box>
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
                     Status
                   </Typography>
                   <StatusChip status={refund.status} />
                 </Box>
-                
-                <Box sx={{ gridColumn: 'span 2' }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Reason
-                  </Typography>
-                  <Typography variant="body2">
-                    {refund.reason}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ gridColumn: 'span 2' }}>
-                  <Typography variant="body2" color="text.secondary">
+              </Box>
+
+              {refund.description && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
                     Description
                   </Typography>
                   <Typography variant="body2">
-                    {refund.description || 'N/A'}
+                    {refund.description}
                   </Typography>
                 </Box>
-                
-                <Box sx={{ gridColumn: 'span 2' }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Gateway Response
-                  </Typography>
-                  <Typography variant="body2">
-                    {refund.gatewayResponse || 'N/A'}
-                  </Typography>
-                </Box>
-              </Box>
+              )}
             </CardContent>
           </Card>
         </Box>
@@ -403,45 +381,20 @@ const RefundDetailPage: React.FC = () => {
           </Box>
           
           <TabPanel value={tabValue} index={0}>
-            {/* Refund Timeline */}
+            {/* Events Timeline */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Refund Events
+                API Events
               </Typography>
               
               <Box sx={{ pl: 2 }}>
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <CheckCircle color="success" />
-                    <Box sx={{ width: 2, height: 40, bgcolor: 'divider', mt: 1 }} />
-                  </Box>
-                  
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Chip 
-                        label="200" 
-                        size="small" 
-                        color="success" 
-                        variant="outlined"
-                      />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        POST
-                      </Typography>
-                      <Typography variant="body2">
-                        Refund Create
-                      </Typography>
-                    </Box>
-                    
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDate(refund.createdAt)}
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                {refund.status === RefundStatus.COMPLETED && (
-                  <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                {events.map((event, index) => (
+                  <Box key={event.id} sx={{ display: 'flex', gap: 2, mb: 2 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <CheckCircle color="success" />
+                      {getEventIcon(event.status)}
+                      {index < events.length - 1 && (
+                        <Box sx={{ width: 2, height: 40, bgcolor: 'divider', mt: 1 }} />
+                      )}
                     </Box>
                     
                     <Box sx={{ flex: 1 }}>
@@ -456,58 +409,66 @@ const RefundDetailPage: React.FC = () => {
                           POST
                         </Typography>
                         <Typography variant="body2">
-                          Refund Completed
+                          {event.eventType.replace('_', ' ')}
                         </Typography>
                       </Box>
                       
                       <Typography variant="caption" color="text.secondary">
-                        {refund.completedAt ? formatDate(refund.completedAt) : 'N/A'}
+                        {formatDate(event.timestamp)}
                       </Typography>
                     </Box>
                   </Box>
-                )}
+                ))}
               </Box>
             </Box>
 
-            {/* Refund Logs */}
+            {/* Logs Table */}
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Refund Logs
+                Request Logs
               </Typography>
               
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Merchant ID</TableCell>
-                      <TableCell>Refund ID</TableCell>
-                      <TableCell>Payment ID</TableCell>
-                      <TableCell>Amount</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Created</TableCell>
+                      <TableCell>Merchant Id</TableCell>
+                      <TableCell>Refund Id</TableCell>
+                      <TableCell>Request Id</TableCell>
+                      <TableCell>Source</TableCell>
+                      <TableCell>Message</TableCell>
+                      <TableCell>Latency</TableCell>
+                      <TableCell>Url Path</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    <TableRow>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                        {refund.merchantId}
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                        {refund.refundId}
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                        {refund.paymentId}
-                      </TableCell>
-                      <TableCell>
-                        {formatAmount(refund.amount, refund.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <StatusChip status={refund.status} />
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(refund.createdAt)}
-                      </TableCell>
-                    </TableRow>
+                    {logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                          {log.merchantId || 'N/A'}
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                          {log.refundId || 'N/A'}
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                          {log.requestId || 'N/A'}
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                          {log.source || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {log.message}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {log.latency || 'N/A'}
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                          {log.urlPath || 'N/A'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -516,13 +477,13 @@ const RefundDetailPage: React.FC = () => {
           
           <TabPanel value={tabValue} index={1}>
             <Typography variant="body2">
-              Refund request data will be displayed here...
+              Request data will be displayed here...
             </Typography>
           </TabPanel>
           
           <TabPanel value={tabValue} index={2}>
             <Typography variant="body2">
-              Refund response data will be displayed here...
+              Response data will be displayed here...
             </Typography>
           </TabPanel>
         </AccordionDetails>
@@ -532,4 +493,3 @@ const RefundDetailPage: React.FC = () => {
 };
 
 export default RefundDetailPage;
-

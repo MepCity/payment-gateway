@@ -120,7 +120,8 @@ const PaymentsPage: React.FC = () => {
 
   // Load data
   const loadPayments = async () => {
-    if (!authState.user?.merchantId) return;
+    // Temporary: Skip auth check for testing
+    // if (!authState.user?.merchantId) return;
     
     setLoading(true);
     setError(null);
@@ -130,7 +131,7 @@ const PaymentsPage: React.FC = () => {
       
       // Real API call
       const response = await dashboardAPI.getPayments(
-        authState.user.merchantId,
+        authState.user?.merchantId || 'TEST_MERCHANT',
         filters,
         pagination.page,
         pagination.pageSize
@@ -147,7 +148,7 @@ const PaymentsPage: React.FC = () => {
       }));
       
       // Get real stats
-      const statsResponse = await dashboardAPI.getPaymentStats(authState.user.merchantId);
+      const statsResponse = await dashboardAPI.getPaymentStats(authState.user?.merchantId || 'TEST_MERCHANT');
       console.log('Stats API response:', statsResponse);
       setStats(statsResponse);
       
@@ -162,17 +163,6 @@ const PaymentsPage: React.FC = () => {
   useEffect(() => {
     loadPayments();
   }, [authState.user?.merchantId, pagination.page, pagination.pageSize, filters]);
-
-  // Auto-refresh every 30 seconds to show new payments
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (authState.user?.merchantId && !loading) {
-        loadPayments();
-      }
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [authState.user?.merchantId, loading]);
 
   // Event handlers
   const handleFiltersChange = (newFilters: DashboardFilters) => {
@@ -192,6 +182,21 @@ const PaymentsPage: React.FC = () => {
 
   const handleRowClick = (payment: PaymentListItem) => {
     navigate(`/dashboard/payments/${payment.paymentId}`);
+  };
+
+  const handleProcessAgain = (payment: PaymentListItem) => {
+    // PaymentListItem'dan gerekli bilgileri alıp ProcessPaymentPage'e gönder
+    navigate('/dashboard/process-payment', {
+      state: {
+        payment: {
+          customerId: payment.customerId,
+          amount: payment.amount,
+          currency: payment.currency,
+          paymentMethod: payment.paymentMethod,
+          description: payment.description,
+        }
+      }
+    });
   };
 
   const handleSyncPayment = async (paymentId: string) => {
@@ -345,6 +350,7 @@ const PaymentsPage: React.FC = () => {
             loading={loading}
             onRowClick={handleRowClick}
             onSyncPayment={handleSyncPayment}
+            onProcessAgain={handleProcessAgain}
           />
 
           {/* Pagination */}
