@@ -595,5 +595,88 @@ export const dashboardAPI = {
       console.error('Create refund error:', error);
       throw error;
     }
+  },
+
+  // Get webhooks for current merchant
+  getWebhooks: async () => {
+    try {
+      // Get current merchant ID from auth context
+      const authUser = localStorage.getItem('auth_user');
+      let merchantId = 'test-merchant'; // fallback
+      
+      if (authUser) {
+        try {
+          const user = JSON.parse(authUser);
+          merchantId = user.merchantId || 'test-merchant';
+        } catch (e) {
+          console.warn('Could not parse auth user, using default merchant ID');
+        }
+      }
+      
+      const response = await dashboardApiClient.get(`/v1/webhooks/merchant/${merchantId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get webhooks error:', error);
+      // Return empty array on error for now
+      return [];
+    }
+  },
+
+  // Get webhooks by merchant ID
+  getWebhooksByMerchant: async (merchantId: string) => {
+    try {
+      const response = await dashboardApiClient.get(`/v1/webhooks/merchant/${merchantId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get webhooks by merchant error:', error);
+      return [];
+    }
+  },
+
+  // Get webhook deliveries for current merchant
+  getWebhookDeliveries: async () => {
+    try {
+      // Get current merchant ID from auth context
+      const authUser = localStorage.getItem('auth_user');
+      let merchantId = 'test-merchant'; // fallback
+      
+      if (authUser) {
+        try {
+          const user = JSON.parse(authUser);
+          merchantId = user.merchantId || 'test-merchant';
+        } catch (e) {
+          console.warn('Could not parse auth user, using default merchant ID');
+        }
+      }
+      
+      const response = await dashboardApiClient.get(`/v1/webhooks/merchant/${merchantId}/deliveries`);
+      return response.data;
+    } catch (error) {
+      console.error('Get webhook deliveries error:', error);
+      // Return empty array on error for now
+      return [];
+    }
+  },
+
+  // Get webhook deliveries by webhook ID
+  getWebhookDeliveriesByWebhookId: async (webhookId: string) => {
+    try {
+      const response = await dashboardApiClient.get(`/v1/webhooks/${webhookId}/deliveries`);
+      return response.data;
+    } catch (error) {
+      console.error('Get webhook deliveries by webhook ID error:', error);
+      return [];
+    }
+  },
+
+  // Setup test webhooks for merchant
+  setupTestWebhooks: async (merchantId: string) => {
+    try {
+      const response = await dashboardApiClient.post(`/v1/merchant-dashboard/${merchantId}/setup-test-webhooks`);
+      return response.data;
+    } catch (error) {
+      console.error('Setup test webhooks error:', error);
+      throw error;
+    }
   }
 };

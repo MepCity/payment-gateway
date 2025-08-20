@@ -12,6 +12,7 @@ import PaymentDetailPage from './pages/PaymentDetailPage';
 import RefundsPage from './pages/RefundsPage';
 import ProcessRefundPage from './pages/ProcessRefundPage';
 import RefundDetailPage from './pages/RefundDetailPage';
+import WebhooksPage from './pages/WebhooksPage';
 
 // Create theme similar to Hyperswitch
 const theme = createTheme({
@@ -108,7 +109,7 @@ function App() {
               <Route path="disputes" element={<div>Disputes Page - Coming Soon</div>} />
               <Route path="customers" element={<div>Customers Page - Coming Soon</div>} />
               <Route path="analytics" element={<div>Analytics Page - Coming Soon</div>} />
-              <Route path="webhooks" element={<div>Webhooks Page - Coming Soon</div>} />
+              <Route path="webhooks" element={<WebhooksPage />} />
               <Route path="settings" element={<div>Settings Page - Coming Soon</div>} />
             </Route>
 
