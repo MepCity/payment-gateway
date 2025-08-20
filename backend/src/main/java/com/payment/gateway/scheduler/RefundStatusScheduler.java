@@ -1,4 +1,4 @@
-package com.payment.gateway.scheduler;
+/*package com.payment.gateway.scheduler;
 
 import com.payment.gateway.model.Refund;
 import com.payment.gateway.repository.RefundRepository;
@@ -22,7 +22,7 @@ public class RefundStatusScheduler {
      * Her 30 saniyede bir PROCESSING durumundaki refund'ları kontrol et
      * 2 dakikadan eski olanları otomatik olarak COMPLETED yap
      */
-    @Scheduled(fixedRate = 30000) // 30 saniye
+   /*  @Scheduled(fixedRate = 30000) // 30 saniye
     @Transactional
     public void processRefundCompletions() {
         log.debug("Starting scheduled refund completion processing");
@@ -56,4 +56,4 @@ public class RefundStatusScheduler {
         
         log.debug("Completed scheduled refund completion processing");
     }
-}
+} */

@@ -325,15 +325,13 @@ public class WebhookService {
             
             // Update webhook retry count
             webhook.setCurrentRetries(webhook.getCurrentRetries() + 1);
-            webhook.setLastError(errorMessage);
-            webhook.setLastAttemptAt(LocalDateTime.now());
+            // Bu field'lar Webhook model'inde mevcut değil, sadece status güncelleniyor
             
             if (webhook.getCurrentRetries() >= webhook.getMaxRetries()) {
                 webhook.setStatus(Webhook.WebhookStatus.FAILED);
                 webhook.setIsActive(false);
             } else {
-                // Schedule retry
-                webhook.setNextAttemptAt(LocalDateTime.now().plusMinutes(5 * webhook.getCurrentRetries()));
+                // Retry scheduled - delivery status güncelleniyor
                 delivery.setStatus(WebhookDelivery.DeliveryStatus.RETRY_SCHEDULED);
             }
             
@@ -381,9 +379,10 @@ public class WebhookService {
     
     public void processRetries() {
         try {
-            List<Webhook> pendingRetries = webhookRepository.findPendingRetries(LocalDateTime.now());
+            // Bu metod şimdilik basitleştirildi - tüm active webhook'ları kontrol et
+            List<Webhook> activeWebhooks = webhookRepository.findByIsActiveTrue();
             
-            for (Webhook webhook : pendingRetries) {
+            for (Webhook webhook : activeWebhooks) {
                 log.info("Processing retry for webhook: {}", webhook.getWebhookId());
                 
                 // Find the last failed delivery
@@ -450,11 +449,12 @@ public class WebhookService {
         response.setMaxRetries(webhook.getMaxRetries());
         response.setCurrentRetries(webhook.getCurrentRetries());
         response.setTimeoutSeconds(webhook.getTimeoutSeconds());
-        response.setLastAttemptAt(webhook.getLastAttemptAt());
-        response.setNextAttemptAt(webhook.getNextAttemptAt());
-        response.setLastError(webhook.getLastError());
-        response.setLastResponse(webhook.getLastResponse());
-        response.setLastResponseCode(webhook.getLastResponseCode());
+        // Bu field'lar Webhook model'inde mevcut değil, null olarak bırakılıyor
+        response.setLastAttemptAt(null);
+        response.setNextAttemptAt(null);
+        response.setLastError(null);
+        response.setLastResponse(null);
+        response.setLastResponseCode(null);
         response.setDescription(webhook.getDescription());
         response.setIsActive(webhook.getIsActive());
         response.setCreatedAt(webhook.getCreatedAt());

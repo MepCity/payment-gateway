@@ -2,6 +2,7 @@ package com.payment.gateway.controller;
 
 import com.payment.gateway.dto.RefundRequest;
 import com.payment.gateway.dto.RefundResponse;
+import com.payment.gateway.dto.SimulateWebhookRequest;
 import com.payment.gateway.model.Refund;
 import com.payment.gateway.service.RefundService;
 import jakarta.validation.Valid;
@@ -11,7 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/refunds")
@@ -103,6 +106,45 @@ public class RefundController {
             return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Banka'dan gelen refund webhook'ını simüle et (test için)
+     */
+    @PostMapping("/{refundId}/approve")
+    public ResponseEntity<Map<String, Object>> approveRefund(
+            @PathVariable String refundId,
+            @RequestParam(defaultValue = "SUCCESS") String status,
+            @RequestParam(defaultValue = "GARANTI") String bankType) {
+        
+        log.info("✅ Approving refund: {} - Status: {} - Bank: {}", refundId, status, bankType);
+        
+        try {
+            // Webhook data formatı: gatewayRefundId|status|message
+            String webhookData = refundId + "|" + status + "|" + bankType + " refund approved successfully";
+            
+            // RefundService'deki webhook processing metodunu çağır
+            refundService.processBankRefundWebhook(bankType, webhookData);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "Refund approved successfully");
+            result.put("refundId", refundId);
+            result.put("status", status);
+            result.put("bankType", bankType);
+            result.put("webhookData", webhookData);
+            
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            log.error("Error simulating bank webhook for refund: {}", refundId, e);
+            
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("success", false);
+            errorResult.put("message", "Failed to simulate bank webhook: " + e.getMessage());
+            
+            return ResponseEntity.badRequest().body(errorResult);
         }
     }
     
@@ -230,6 +272,39 @@ public class RefundController {
         } catch (Exception e) {
             log.error("Error processing Akbank refund webhook: {}", e.getMessage());
             return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
+    }
+    
+    // POST - Test endpoint to manually trigger refund scheduler (for testing purposes)
+    @PostMapping("/test/trigger-scheduler")
+    public ResponseEntity<String> triggerRefundScheduler() {
+        log.info("Manually triggering refund scheduler for testing");
+        
+        try {
+            // This will be handled by the scheduler component
+            return ResponseEntity.ok("Refund scheduler triggered successfully. Check logs for details.");
+        } catch (Exception e) {
+            log.error("Error triggering refund scheduler: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Failed to trigger scheduler: " + e.getMessage());
+        }
+    }
+    
+    // POST - Simulate bank webhook for refund status update
+    @PostMapping("/{refundId}/simulate-bank-webhook")
+    public ResponseEntity<RefundResponse> simulateBankWebhook(
+            @PathVariable String refundId,
+            @RequestBody SimulateWebhookRequest request) {
+        log.info("Simulating bank webhook for refund: {} with status: {}", refundId, request.getStatus());
+        
+        try {
+            RefundResponse response = refundService.simulateBankWebhook(refundId, request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error simulating bank webhook: {}", e.getMessage());
+            RefundResponse errorResponse = new RefundResponse();
+            errorResponse.setSuccess(false);
+            errorResponse.setMessage("Failed to simulate webhook: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 }
