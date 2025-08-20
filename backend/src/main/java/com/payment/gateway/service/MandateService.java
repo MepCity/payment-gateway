@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.stream.Collectors;
 public class MandateService {
     
     private final MandateRepository mandateRepository;
+    private final AuditService auditService;
     
     public MandateResponse createMandate(MandateRequest request) {
         try {
@@ -52,6 +55,20 @@ public class MandateService {
             
             // Save mandate
             Mandate savedMandate = mandateRepository.save(mandate);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("MANDATE_CREATED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("CREATE")
+                .resourceType("MANDATE")
+                .resourceId(mandateId)
+                .newValues(savedMandate)
+                .additionalData("customerId", request.getCustomerId())
+                .additionalData("merchantId", request.getMerchantId())
+                .complianceTag("PCI_DSS")
+                .log();
             
             log.info("Mandate created successfully with ID: {}", mandateId);
             

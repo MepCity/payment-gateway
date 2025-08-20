@@ -77,7 +77,7 @@ public class Dispute {
     private LocalDateTime updatedAt;
     
     public enum DisputeStatus {
-        OPENED, UNDER_REVIEW, EVIDENCE_REQUIRED, RESOLVED, CLOSED, WON, LOST
+        OPENED, UNDER_REVIEW, EVIDENCE_REQUIRED, RESOLVED, CLOSED, WON, LOST, PARTIAL_REFUND
     }
     
     public enum DisputeReason {

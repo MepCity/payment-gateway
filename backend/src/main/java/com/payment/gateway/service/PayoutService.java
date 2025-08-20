@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 public class PayoutService {
     
     private final PayoutRepository payoutRepository;
+    private final AuditService auditService;
     
     public PayoutResponse createPayout(PayoutRequest request) {
         try {
@@ -53,6 +56,21 @@ public class PayoutService {
             
             // Save to database
             Payout savedPayout = payoutRepository.save(payout);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("PAYOUT_CREATED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("system")
+                .action("CREATE")
+                .resourceType("PAYOUT")
+                .resourceId(payoutId)
+                .newValues(savedPayout)
+                .additionalData("merchantId", request.getMerchantId())
+                .additionalData("customerId", request.getCustomerId())
+                .additionalData("amount", request.getAmount().toString())
+                .complianceTag("PCI_DSS")
+                .log();
             
             log.info("Payout created successfully with ID: {}", payoutId);
             return createPayoutResponse(savedPayout, true, "Payout created successfully");
@@ -200,21 +218,32 @@ public class PayoutService {
         }
     }
     
-    public void deletePayout(Long id) {
+    public PayoutResponse deletePayout(Long id) {
         try {
             if (payoutRepository.existsById(id)) {
                 payoutRepository.deleteById(id);
                 log.info("Payout deleted with ID: {}", id);
+                
+                PayoutResponse response = new PayoutResponse();
+                response.setSuccess(true);
+                response.setMessage("Payout deleted successfully");
+                return response;
             } else {
-                throw new IllegalArgumentException("Payout not found with ID: " + id);
+                PayoutResponse response = new PayoutResponse();
+                response.setSuccess(false);
+                response.setMessage("Payout not found with ID: " + id);
+                return response;
             }
         } catch (Exception e) {
             log.error("Error deleting payout with ID {}: {}", id, e.getMessage(), e);
-            throw new RuntimeException("Failed to delete payout", e);
+            PayoutResponse response = new PayoutResponse();
+            response.setSuccess(false);
+            response.setMessage("Failed to delete payout: " + e.getMessage());
+            return response;
         }
     }
     
-    public BigDecimal getTotalPayoutAmountByMerchantId(String merchantId) {
+    public BigDecimal getTotalPayoutAmountByMerchant(String merchantId) {
         try {
             BigDecimal total = payoutRepository.sumAmountByStatusAndMerchantId(Payout.PayoutStatus.COMPLETED, merchantId);
             return total != null ? total : BigDecimal.ZERO;
