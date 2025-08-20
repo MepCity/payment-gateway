@@ -11,39 +11,13 @@ const authApiClient = axios.create({
 });
 
 export const authAPI = {
-  // Mock login - replace with real API call
+  // Real backend authentication
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     try {
-      // TODO: Replace with real backend authentication endpoint
-      // const response = await authApiClient.post('/v1/auth/login', credentials);
-      // return response.data;
-      
-      // Mock implementation for now  
-      if (credentials.email === 'merchant@test.com' && credentials.password === 'password') {
-        const apiKey = 'pk_merch001_live_abc123'; // Use the valid API key
-        
-        return {
-          success: true,
-          message: 'Login successful',
-          user: {
-            id: '1',
-            email: credentials.email,
-            merchantId: 'TEST_MERCHANT',
-            merchantName: 'Test Merchant',
-            role: 'ADMIN',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          token: 'mock-jwt-token-' + Date.now(),
-          apiKey: apiKey
-        };
-      } else {
-        return {
-          success: false,
-          message: 'Invalid email or password'
-        };
-      }
+      const response = await authApiClient.post('/v1/auth/login', credentials);
+      return response.data;
     } catch (error: any) {
+      console.error('Login error:', error);
       return {
         success: false,
         message: error.response?.data?.message || 'Login failed'
@@ -53,15 +27,28 @@ export const authAPI = {
 
   // Logout (if needed for backend cleanup)
   logout: async (): Promise<void> => {
-    // TODO: Implement logout endpoint if needed
-    // await authApiClient.post('/v1/auth/logout');
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await authApiClient.post('/v1/auth/logout', {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   },
 
   // Get current user profile
   getProfile: async (token: string) => {
-    // TODO: Implement get profile endpoint
-    // return await authApiClient.get('/v1/auth/profile', {
-    //   headers: { Authorization: `Bearer ${token}` }
-    // });
+    try {
+      const response = await authApiClient.get('/v1/auth/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Get profile error:', error);
+      throw error;
+    }
   }
 };
