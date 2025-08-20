@@ -2,6 +2,7 @@ package com.payment.gateway.service;
 
 import com.payment.gateway.dto.PaymentRequest;
 import com.payment.gateway.dto.PaymentResponse;
+import com.payment.gateway.dto.WebhookDeliveryRequest;
 import com.payment.gateway.model.Payment;
 import com.payment.gateway.model.RiskAssessment;
 import com.payment.gateway.repository.PaymentRepository;
@@ -26,6 +27,7 @@ public class PaymentService {
     private final RealBankIntegrationService realBankIntegrationService;
     private final RiskAssessmentService riskAssessmentService;
     private final AuditService auditService;
+    private final WebhookService webhookService;
     
 
     @Transactional(noRollbackFor = DataIntegrityViolationException.class)
@@ -806,9 +808,30 @@ public class PaymentService {
     private void sendPaymentSuccessWebhook(Payment payment) {
         try {
             log.info("Sending success webhook to merchant for payment: {}", payment.getPaymentId());
-            // TODO: Implement merchant webhook notification
-            // Bu kısımda merchant'ın webhook URL'ine POST isteği gönderilir
-            // Şimdilik sadece log yazıyoruz
+            
+            // WebhookDeliveryRequest oluştur
+            WebhookDeliveryRequest webhookRequest = new WebhookDeliveryRequest();
+            webhookRequest.setMerchantId(payment.getMerchantId());
+            webhookRequest.setEventType("PAYMENT_COMPLETED");
+            webhookRequest.setEntityId(payment.getPaymentId());
+            
+            // Event data hazırla
+            java.util.Map<String, Object> eventData = new java.util.HashMap<>();
+            eventData.put("paymentId", payment.getPaymentId());
+            eventData.put("transactionId", payment.getTransactionId());
+            eventData.put("amount", payment.getAmount());
+            eventData.put("currency", payment.getCurrency());
+            eventData.put("status", payment.getStatus().toString());
+            eventData.put("customerId", payment.getCustomerId());
+            eventData.put("paymentMethod", payment.getPaymentMethod());
+            eventData.put("gatewayTransactionId", payment.getGatewayTransactionId());
+            eventData.put("completedAt", payment.getUpdatedAt());
+            
+            webhookRequest.setEventData(eventData);
+            
+            // Webhook'u gönder
+            webhookService.triggerWebhookDelivery(webhookRequest);
+            
         } catch (Exception e) {
             log.error("Error sending success webhook to merchant for payment: {}", payment.getPaymentId(), e);
         }
@@ -820,9 +843,31 @@ public class PaymentService {
     private void sendPaymentFailureWebhook(Payment payment) {
         try {
             log.info("Sending failure webhook to merchant for payment: {}", payment.getPaymentId());
-            // TODO: Implement merchant webhook notification
-            // Bu kısımda merchant'ın webhook URL'ine POST isteği gönderilir
-            // Şimdilik sadece log yazıyoruz
+            
+            // WebhookDeliveryRequest oluştur
+            WebhookDeliveryRequest webhookRequest = new WebhookDeliveryRequest();
+            webhookRequest.setMerchantId(payment.getMerchantId());
+            webhookRequest.setEventType("PAYMENT_FAILED");
+            webhookRequest.setEntityId(payment.getPaymentId());
+            
+            // Event data hazırla
+            java.util.Map<String, Object> eventData = new java.util.HashMap<>();
+            eventData.put("paymentId", payment.getPaymentId());
+            eventData.put("transactionId", payment.getTransactionId());
+            eventData.put("amount", payment.getAmount());
+            eventData.put("currency", payment.getCurrency());
+            eventData.put("status", payment.getStatus().toString());
+            eventData.put("customerId", payment.getCustomerId());
+            eventData.put("paymentMethod", payment.getPaymentMethod());
+            eventData.put("gatewayTransactionId", payment.getGatewayTransactionId());
+            eventData.put("failureReason", payment.getGatewayResponse());
+            eventData.put("failedAt", payment.getUpdatedAt());
+            
+            webhookRequest.setEventData(eventData);
+            
+            // Webhook'u gönder
+            webhookService.triggerWebhookDelivery(webhookRequest);
+            
         } catch (Exception e) {
             log.error("Error sending failure webhook to merchant for payment: {}", payment.getPaymentId(), e);
         }

@@ -129,7 +129,7 @@ public class WebhookService {
             List<Webhook> webhooks = webhookRepository.findAll();
             return webhooks.stream()
                     .map(webhook -> createWebhookResponse(webhook, true, "Webhook retrieved successfully"))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList())(Collectors.toList());
         } catch (Exception e) {
             log.error("Error retrieving all webhooks: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve webhooks", e);
@@ -141,7 +141,7 @@ public class WebhookService {
             List<Webhook> webhooks = webhookRepository.findByMerchantId(merchantId);
             return webhooks.stream()
                     .map(webhook -> createWebhookResponse(webhook, true, "Webhook retrieved successfully"))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList())(Collectors.toList());
         } catch (Exception e) {
             log.error("Error retrieving webhooks for merchant {}: {}", merchantId, e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve webhooks for merchant", e);
@@ -153,7 +153,7 @@ public class WebhookService {
             List<Webhook> webhooks = webhookRepository.findByEventType(eventType);
             return webhooks.stream()
                     .map(webhook -> createWebhookResponse(webhook, true, "Webhook retrieved successfully"))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList())(Collectors.toList());
         } catch (Exception e) {
             log.error("Error retrieving webhooks by event type {}: {}", eventType, e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve webhooks by event type", e);
@@ -165,7 +165,7 @@ public class WebhookService {
             List<Webhook> webhooks = webhookRepository.findByIsActiveTrue();
             return webhooks.stream()
                     .map(webhook -> createWebhookResponse(webhook, true, "Webhook retrieved successfully"))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList())(Collectors.toList());
         } catch (Exception e) {
             log.error("Error retrieving active webhooks: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve active webhooks", e);
@@ -360,7 +360,7 @@ public class WebhookService {
             List<WebhookDelivery> deliveries = webhookDeliveryRepository.findByWebhookId(webhookId);
             return deliveries.stream()
                     .map(this::createDeliveryResponse)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList())(Collectors.toList());
         } catch (Exception e) {
             log.error("Error retrieving deliveries for webhook {}: {}", webhookId, e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve deliveries", e);
@@ -372,7 +372,7 @@ public class WebhookService {
             List<WebhookDelivery> deliveries = webhookDeliveryRepository.findByMerchantId(merchantId);
             return deliveries.stream()
                     .map(this::createDeliveryResponse)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toList())(Collectors.toList());
         } catch (Exception e) {
             log.error("Error retrieving deliveries for merchant {}: {}", merchantId, e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve deliveries", e);

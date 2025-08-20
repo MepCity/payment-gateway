@@ -2,6 +2,7 @@ package com.payment.gateway.service;
 
 import com.payment.gateway.dto.RefundRequest;
 import com.payment.gateway.dto.RefundResponse;
+import com.payment.gateway.dto.WebhookDeliveryRequest;
 import com.payment.gateway.model.Refund;
 import com.payment.gateway.repository.RefundRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class RefundService {
     private final RefundRepository refundRepository;
     private final AuditService auditService;
     private final PaymentService paymentService;
+    private final WebhookService webhookService;
     
     public RefundResponse createRefund(RefundRequest request) {
         try {
@@ -627,14 +629,52 @@ public class RefundService {
             log.info("Notifying merchant {} about refund status change for refund ID: {}", 
                     refund.getMerchantId(), refund.getRefundId());
             
-            // Bu kısım WebhookService ile entegre edilebilir
-            // Şimdilik sadece log yazıyoruz
-            String notificationMessage = String.format(
-                "Refund status updated to %s for amount %s %s. Refund ID: %s",
-                refund.getStatus(), refund.getAmount(), refund.getCurrency(), refund.getRefundId()
-            );
+            // WebhookDeliveryRequest oluştur
+            WebhookDeliveryRequest webhookRequest = new WebhookDeliveryRequest();
+            webhookRequest.setMerchantId(refund.getMerchantId());
             
-            log.info("Merchant notification: {}", notificationMessage);
+            // Event type'ı refund status'una göre belirle
+            String eventType;
+            switch (refund.getStatus()) {
+                case COMPLETED:
+                    eventType = "REFUND_COMPLETED";
+                    break;
+                case FAILED:
+                    eventType = "REFUND_FAILED";
+                    break;
+                case PROCESSING:
+                    eventType = "REFUND_CREATED";
+                    break;
+                default:
+                    eventType = "REFUND_CREATED";
+            }
+            
+            webhookRequest.setEventType(eventType);
+            webhookRequest.setEntityId(refund.getRefundId());
+            
+            // Event data hazırla
+            java.util.Map<String, Object> eventData = new java.util.HashMap<>();
+            eventData.put("refundId", refund.getRefundId());
+            eventData.put("paymentId", refund.getPaymentId());
+            eventData.put("transactionId", refund.getTransactionId());
+            eventData.put("amount", refund.getAmount());
+            eventData.put("currency", refund.getCurrency());
+            eventData.put("status", refund.getStatus().toString());
+            eventData.put("reason", refund.getReason());
+            eventData.put("description", refund.getDescription());
+            eventData.put("merchantId", refund.getMerchantId());
+            eventData.put("customerId", refund.getCustomerId());
+            eventData.put("gatewayRefundId", refund.getGatewayRefundId());
+            eventData.put("refundDate", refund.getRefundDate());
+            eventData.put("updatedAt", refund.getUpdatedAt());
+            
+            webhookRequest.setEventData(eventData);
+            
+            // Webhook'u gönder
+            webhookService.triggerWebhookDelivery(webhookRequest);
+            
+            log.info("Refund webhook triggered for merchant {} - Event: {}", 
+                    refund.getMerchantId(), eventType);
             
         } catch (Exception e) {
             log.error("Error notifying merchant about refund status: {}", e.getMessage());
