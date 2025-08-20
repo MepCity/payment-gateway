@@ -284,6 +284,49 @@ public class PaymentController {
 
 
 
+    // ===== BANK WEBHOOK ENDPOINTS =====
+    
+    /**
+     * Banka webhook callback'i - Ödeme sonucu geldiğinde
+     */
+    @PostMapping("/bank-webhook")
+    public ResponseEntity<Map<String, String>> handleBankWebhook(@RequestBody Map<String, Object> webhookData) {
+        log.info("🏦 Bank webhook received: {}", webhookData);
+        
+        try {
+            // Webhook verilerini parse et
+            String transactionId = (String) webhookData.get("transactionId");
+            String bankTransactionId = (String) webhookData.get("bankTransactionId");
+            String authCode = (String) webhookData.get("authCode");
+            String amount = (String) webhookData.get("amount");
+            String currency = (String) webhookData.get("currency");
+            Boolean success = (Boolean) webhookData.get("success");
+            
+            if (transactionId == null || success == null) {
+                log.error("❌ Invalid webhook data - missing required fields");
+                return ResponseEntity.badRequest().body(Map.of("error", "Missing required fields"));
+            }
+            
+            // Payment status'u güncelle
+            PaymentResponse response = paymentService.handleBankWebhook(
+                transactionId, bankTransactionId, authCode, amount, currency, success);
+            
+            log.info("✅ Bank webhook processed successfully for transaction: {}", transactionId);
+            
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Webhook processed successfully",
+                "paymentId", response.getPaymentId(),
+                "finalStatus", response.getStatus().name()
+            ));
+            
+        } catch (Exception e) {
+            log.error("❌ Error processing bank webhook", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to process webhook: " + e.getMessage()));
+        }
+    }
+    
     /**
      * Extract client IP address from HTTP request
      * Handles proxy headers like X-Forwarded-For, X-Real-IP
