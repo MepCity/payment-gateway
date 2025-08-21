@@ -193,25 +193,6 @@ class PaymentApiService {
     }
   }
 
-  async updatePaymentStatusByTransactionId(transactionId: string, status: string): Promise<PaymentResponse> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/v1/payments/transaction/${transactionId}/status?status=${status}`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Update payment status by transaction ID error:', error);
-      throw error;
-    }
-  }
-
   async refundPayment(id: number): Promise<PaymentResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}/v1/payments/${id}/refund`, {

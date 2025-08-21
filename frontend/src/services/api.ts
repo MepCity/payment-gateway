@@ -46,13 +46,9 @@ export const paymentAPI = {
   getPaymentsByStatus: (status: PaymentStatus): Promise<PaymentResponse[]> =>
     api.get(`/v1/payments/status/${status}`).then(response => response.data),
 
-  // Update payment status by ID (DEPRECATED - Use transaction ID instead for security)
+  // Update payment status
   updatePaymentStatus: (id: number, status: PaymentStatus): Promise<PaymentResponse> =>
     api.put(`/v1/payments/${id}/status?status=${status}`).then(response => response.data),
-
-  // Update payment status by Transaction ID (SECURE - Recommended)
-  updatePaymentStatusByTransactionId: (transactionId: string, status: PaymentStatus): Promise<PaymentResponse> =>
-    api.put(`/v1/payments/transaction/${transactionId}/status?status=${status}`).then(response => response.data),
 
   // Delete payment
   deletePayment: (id: number): Promise<void> =>
