@@ -49,6 +49,12 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   {
+    id: 'dashboard',
+    title: 'Dashboard',
+    icon: <Home />,
+    path: '/dashboard/overview'
+  },
+  {
     id: 'process-payment',
     title: 'Process Payment',
     icon: <CreditCard />,

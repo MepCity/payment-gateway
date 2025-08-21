@@ -24,7 +24,7 @@ const initialState: AuthState = {
   user: null,
   token: null,
   apiKey: null,
-  loading: false,
+  loading: true, // Start with loading true to prevent flash during session restore
   error: null,
 };
 
@@ -58,6 +58,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
     case 'LOGOUT':
       return {
         ...initialState,
+        loading: false, // Set loading to false when logging out
       };
     
     case 'CLEAR_ERROR':
@@ -70,6 +71,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         user: action.payload.user,
         token: action.payload.token,
         apiKey: action.payload.apiKey,
+        loading: false, // Set loading to false after session restore
       };
     
     default:
@@ -99,7 +101,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem('auth_token');
           localStorage.removeItem('auth_user');
           localStorage.removeItem('auth_api_key');
+          // Set loading to false if session restore fails
+          dispatch({ type: 'LOGOUT' });
         }
+      } else {
+        // No session to restore, set loading to false
+        dispatch({ type: 'LOGOUT' });
       }
     };
 

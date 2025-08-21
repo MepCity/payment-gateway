@@ -50,4 +50,43 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
     boolean existsByDisputeId(String disputeId);
     
     boolean existsByGatewayDisputeId(String gatewayDisputeId);
+    
+    // Yeni bank dispute metodları
+    Optional<Dispute> findByBankDisputeId(String bankDisputeId);
+    
+    List<Dispute> findByMerchantIdAndStatusIn(String merchantId, List<Dispute.DisputeStatus> statuses);
+    
+    List<Dispute> findByBankName(String bankName);
+    
+    @Query("SELECT d FROM Dispute d WHERE d.merchantResponseDeadline < :currentTime AND d.status IN :pendingStatuses")
+    List<Dispute> findExpiredMerchantResponses(@Param("currentTime") LocalDateTime currentTime,
+                                               @Param("pendingStatuses") List<Dispute.DisputeStatus> pendingStatuses);
+    
+    @Query("SELECT d FROM Dispute d WHERE d.merchantResponseDeadline BETWEEN :startTime AND :endTime AND d.status IN :pendingStatuses")
+    List<Dispute> findUpcomingDeadlines(@Param("startTime") LocalDateTime startTime,
+                                        @Param("endTime") LocalDateTime endTime,
+                                        @Param("pendingStatuses") List<Dispute.DisputeStatus> pendingStatuses);
+    
+    @Query("SELECT COUNT(d) FROM Dispute d WHERE d.merchantId = :merchantId AND d.status = 'BANK_APPROVED'")
+    long countWonDisputesByMerchant(@Param("merchantId") String merchantId);
+    
+    @Query("SELECT COUNT(d) FROM Dispute d WHERE d.merchantId = :merchantId AND d.status = 'BANK_REJECTED'")
+    long countLostDisputesByMerchant(@Param("merchantId") String merchantId);
+    
+    // Scheduler için deadline kontrol metodları
+    @Query("SELECT d FROM Dispute d WHERE d.merchantResponseDeadline < :currentTime AND d.status = 'PENDING_MERCHANT_RESPONSE'")
+    List<Dispute> findDisputesWithExpiredResponseDeadline(@Param("currentTime") LocalDateTime currentTime);
+    
+    @Query("SELECT d FROM Dispute d WHERE d.adminEvaluationDeadline < :currentTime AND d.status = 'PENDING_ADMIN_EVALUATION'")
+    List<Dispute> findDisputesWithExpiredAdminDeadline(@Param("currentTime") LocalDateTime currentTime);
+    
+    // İstatistik metodları
+    @Query("SELECT COUNT(d) FROM Dispute d WHERE d.disputeDate BETWEEN :startDate AND :endDate")
+    long countDisputesByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    
+    @Query("SELECT COUNT(d) FROM Dispute d WHERE d.status = 'PENDING_MERCHANT_RESPONSE'")
+    long countPendingMerchantResponses();
+    
+    @Query("SELECT COUNT(d) FROM Dispute d WHERE d.status = 'PENDING_ADMIN_EVALUATION'")
+    long countPendingAdminEvaluations();
 }

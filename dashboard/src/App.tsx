@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginPage from './components/auth/LoginPage';
 import DashboardLayout from './components/layout/DashboardLayout';
+import DashboardPage from './pages/DashboardPage';
 import ProcessPaymentPage from './pages/ProcessPaymentPage';
 import PaymentsPage from './pages/PaymentsPage';
 import PaymentDetailPage from './pages/PaymentDetailPage';
@@ -13,6 +14,8 @@ import RefundsPage from './pages/RefundsPage';
 import RefundDetailPage from './pages/RefundDetailPage';
 import CustomersPage from './pages/CustomersPage';
 import CustomerDetailPage from './pages/CustomerDetailPage';
+import DisputesPage from './pages/DisputesPage';
+import DisputeDetailPage from './pages/DisputeDetailPage';
 
 // Create theme similar to Hyperswitch
 const theme = createTheme({
@@ -85,13 +88,16 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             
             {/* Protected Routes */}
-            <Route path="/dashboard" element={
+            <Route path="/dashboard/*" element={
               <ProtectedRoute>
                 <DashboardLayout />
               </ProtectedRoute>
             }>
-              {/* Default route - Process Payment */}
-              <Route index element={<ProcessPaymentPage />} />
+              {/* Default route - Dashboard Overview */}
+              <Route index element={<DashboardPage />} />
+              
+              {/* Dashboard Overview */}
+              <Route path="overview" element={<DashboardPage />} />
               
               {/* Process Payment */}
               <Route path="process-payment" element={<ProcessPaymentPage />} />
@@ -108,8 +114,11 @@ function App() {
               <Route path="customers" element={<CustomersPage />} />
               <Route path="customers/:customerId" element={<CustomerDetailPage />} />
               
+              {/* Disputes */}
+              <Route path="disputes" element={<DisputesPage />} />
+              <Route path="disputes/:disputeId" element={<DisputeDetailPage />} />
+              
               {/* Other routes - to be implemented */}
-              <Route path="disputes" element={<div>Disputes Page - Coming Soon</div>} />
               <Route path="analytics" element={<div>Analytics Page - Coming Soon</div>} />
               <Route path="webhooks" element={<div>Webhooks Page - Coming Soon</div>} />
               <Route path="settings" element={<div>Settings Page - Coming Soon</div>} />
@@ -117,9 +126,6 @@ function App() {
 
             {/* Default Redirect */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            
-            {/* 404 Catch All */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Router>
       </AuthProvider>

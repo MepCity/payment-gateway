@@ -10,6 +10,107 @@ export interface PaymentStats {
   averageAmount: number;
 }
 
+// Dispute related types
+export interface DisputeStats {
+  totalDisputes: number;
+  pendingResponses: number;
+  activeDisputes: number;
+  wonDisputes: number;
+  lostDisputes: number;
+  winRate: number;
+  totalDisputeAmount: number;
+  urgentDisputes: number;
+  recentDisputes: number;
+  reasonBreakdown: Record<string, number>;
+  needsAttention: boolean;
+}
+
+export enum DisputeStatus {
+  OPENED = 'OPENED',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  EVIDENCE_REQUIRED = 'EVIDENCE_REQUIRED',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+  WON = 'WON',
+  LOST = 'LOST'
+}
+
+export enum DisputeReason {
+  FRAUD = 'FRAUD',
+  DUPLICATE = 'DUPLICATE',
+  PRODUCT_NOT_RECEIVED = 'PRODUCT_NOT_RECEIVED',
+  PRODUCT_NOT_AS_DESCRIBED = 'PRODUCT_NOT_AS_DESCRIBED',
+  CREDIT_NOT_PROCESSED = 'CREDIT_NOT_PROCESSED',
+  GENERAL = 'GENERAL',
+  OTHER = 'OTHER'
+}
+
+export enum DisputeResponseType {
+  ACCEPT = 'ACCEPT',
+  DEFEND = 'DEFEND'
+}
+
+export interface DisputeListItem {
+  disputeId: string;
+  paymentId: string;
+  merchantId: string;
+  amount: number;
+  currency: string;
+  status: DisputeStatus;
+  reason: DisputeReason;
+  disputeDate: string;
+  merchantResponseDeadline?: string;
+  bankResponseDeadline?: string;
+  evidence?: string;
+  merchantNotes?: string;
+  adminNotes?: string;
+  bankDecision?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DisputeDetail extends DisputeListItem {
+  transactionId?: string;
+  customerEmail?: string;
+  description?: string;
+  events?: DisputeEvent[];
+  logs?: DisputeLog[];
+}
+
+export interface DisputeEvent {
+  id: number;
+  disputeId: string;
+  eventType: string;
+  description: string;
+  createdAt: string;
+  metadata?: Record<string, any>;
+}
+
+export interface DisputeLog {
+  id: number;
+  disputeId: string;
+  level: 'INFO' | 'WARN' | 'ERROR';
+  message: string;
+  details?: string;
+  createdAt: string;
+}
+
+export interface DisputeFilters {
+  status?: DisputeStatus[];
+  reason?: DisputeReason[];
+  dateFrom?: string;
+  dateTo?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  search?: string;
+}
+
+export interface DisputeResponse {
+  responseType: DisputeResponseType;
+  evidence?: string;
+  notes?: string;
+}
+
 // Refund related types
 export interface RefundStats {
   totalRefunds: number;

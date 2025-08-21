@@ -55,4 +55,8 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     boolean existsByRefundId(String refundId);
     
     boolean existsByGatewayRefundId(String gatewayRefundId);
+    
+    // Scheduler için uzun süredir pending olan refund'ları bul
+    @Query("SELECT r FROM Refund r WHERE r.status = 'PROCESSING' AND r.createdAt < :cutoffTime")
+    List<Refund> findLongPendingRefunds(@Param("cutoffTime") LocalDateTime cutoffTime);
 }
