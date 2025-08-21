@@ -2,10 +2,10 @@ package com.payment.gateway.service;
 
 import com.payment.gateway.dto.PaymentRequest;
 import com.payment.gateway.dto.PaymentResponse;
-import com.payment.gateway.dto.WebhookDeliveryRequest;
 import com.payment.gateway.model.Payment;
 import com.payment.gateway.model.RiskAssessment;
 import com.payment.gateway.repository.PaymentRepository;
+import com.payment.gateway.model.AuditLog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,7 +27,6 @@ public class PaymentService {
     private final RealBankIntegrationService realBankIntegrationService;
     private final RiskAssessmentService riskAssessmentService;
     private final AuditService auditService;
-    private final WebhookService webhookService;
     
 
     @Transactional(noRollbackFor = DataIntegrityViolationException.class)
@@ -808,30 +807,9 @@ public class PaymentService {
     private void sendPaymentSuccessWebhook(Payment payment) {
         try {
             log.info("Sending success webhook to merchant for payment: {}", payment.getPaymentId());
-            
-            // WebhookDeliveryRequest oluştur
-            WebhookDeliveryRequest webhookRequest = new WebhookDeliveryRequest();
-            webhookRequest.setMerchantId(payment.getMerchantId());
-            webhookRequest.setEventType("PAYMENT_COMPLETED");
-            webhookRequest.setEntityId(payment.getPaymentId());
-            
-            // Event data hazırla
-            java.util.Map<String, Object> eventData = new java.util.HashMap<>();
-            eventData.put("paymentId", payment.getPaymentId());
-            eventData.put("transactionId", payment.getTransactionId());
-            eventData.put("amount", payment.getAmount());
-            eventData.put("currency", payment.getCurrency());
-            eventData.put("status", payment.getStatus().toString());
-            eventData.put("customerId", payment.getCustomerId());
-            eventData.put("paymentMethod", payment.getPaymentMethod());
-            eventData.put("gatewayTransactionId", payment.getGatewayTransactionId());
-            eventData.put("completedAt", payment.getUpdatedAt());
-            
-            webhookRequest.setEventData(eventData);
-            
-            // Webhook'u gönder
-            webhookService.triggerWebhookDelivery(webhookRequest);
-            
+            // TODO: Implement merchant webhook notification
+            // Bu kısımda merchant'ın webhook URL'ine POST isteği gönderilir
+            // Şimdilik sadece log yazıyoruz
         } catch (Exception e) {
             log.error("Error sending success webhook to merchant for payment: {}", payment.getPaymentId(), e);
         }
@@ -843,33 +821,104 @@ public class PaymentService {
     private void sendPaymentFailureWebhook(Payment payment) {
         try {
             log.info("Sending failure webhook to merchant for payment: {}", payment.getPaymentId());
-            
-            // WebhookDeliveryRequest oluştur
-            WebhookDeliveryRequest webhookRequest = new WebhookDeliveryRequest();
-            webhookRequest.setMerchantId(payment.getMerchantId());
-            webhookRequest.setEventType("PAYMENT_FAILED");
-            webhookRequest.setEntityId(payment.getPaymentId());
-            
-            // Event data hazırla
-            java.util.Map<String, Object> eventData = new java.util.HashMap<>();
-            eventData.put("paymentId", payment.getPaymentId());
-            eventData.put("transactionId", payment.getTransactionId());
-            eventData.put("amount", payment.getAmount());
-            eventData.put("currency", payment.getCurrency());
-            eventData.put("status", payment.getStatus().toString());
-            eventData.put("customerId", payment.getCustomerId());
-            eventData.put("paymentMethod", payment.getPaymentMethod());
-            eventData.put("gatewayTransactionId", payment.getGatewayTransactionId());
-            eventData.put("failureReason", payment.getGatewayResponse());
-            eventData.put("failedAt", payment.getUpdatedAt());
-            
-            webhookRequest.setEventData(eventData);
-            
-            // Webhook'u gönder
-            webhookService.triggerWebhookDelivery(webhookRequest);
-            
+            // TODO: Implement merchant webhook notification
+            // Bu kısımda merchant'ın webhook URL'ine POST isteği gönderilir
+            // Şimdilik sadece log yazıyoruz
         } catch (Exception e) {
             log.error("Error sending failure webhook to merchant for payment: {}", payment.getPaymentId(), e);
+        }
+    }
+    
+    /**
+     * Banka'dan gelen payment webhook'ını işle
+     */
+    public void processBankPaymentWebhook(String bankType, String webhookData) {
+        try {
+            log.info("Processing {} payment webhook: {}", bankType, webhookData);
+            
+            // Webhook data'sını parse et (gerçek implementasyonda JSON parsing yapılır)
+            // Bu örnekte basit string parsing kullanıyoruz
+            String[] parts = webhookData.split("\\|");
+            if (parts.length >= 3) {
+                String paymentId = parts[0];
+                String status = parts[1];
+                String message = parts[2];
+                
+                // Payment ID ile payment'ı bul
+                Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
+                if (paymentOpt.isPresent()) {
+                    Payment payment = paymentOpt.get();
+                    
+                    // Banka'dan gelen status'a göre güncelle
+                    Payment.PaymentStatus newStatus = mapBankStatusToPaymentStatus(status);
+                    payment.setStatus(newStatus);
+                    payment.setGatewayResponse(bankType + " webhook: " + message);
+                    payment.setUpdatedAt(LocalDateTime.now());
+                    
+                    // Eğer payment tamamlandıysa tarih ekle
+                    if (newStatus == Payment.PaymentStatus.COMPLETED) {
+                        payment.setCompletedAt(LocalDateTime.now());
+                    }
+                    
+                    paymentRepository.save(payment);
+                    
+                    // Audit logging
+                    auditService.logEvent(
+                        auditService.createEvent()
+                            .eventType("PAYMENT_STATUS_UPDATED_VIA_WEBHOOK")
+                            .severity(AuditLog.Severity.MEDIUM)
+                            .actor(bankType)
+                            .action("UPDATE")
+                            .resourceType("PAYMENT")
+                            .resourceId(payment.getPaymentId())
+                            .additionalData("bankType", bankType)
+                            .additionalData("newStatus", newStatus.toString())
+                            .additionalData("webhookMessage", message)
+                            .complianceTag("PCI_DSS")
+                    );
+                    
+                    log.info("Payment status updated via {} webhook to {} for payment ID: {}", 
+                            bankType, newStatus, payment.getPaymentId());
+                    
+                    // Merchant'a webhook gönder (payment durumu değişti)
+                    if (newStatus == Payment.PaymentStatus.COMPLETED) {
+                        sendPaymentSuccessWebhook(payment);
+                    } else if (newStatus == Payment.PaymentStatus.FAILED) {
+                        sendPaymentFailureWebhook(payment);
+                    }
+                    
+                } else {
+                    log.warn("Payment not found for payment ID: {}", paymentId);
+                }
+            } else {
+                log.error("Invalid webhook data format: {}", webhookData);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing {} payment webhook: {}", bankType, e.getMessage());
+            throw new RuntimeException("Failed to process payment webhook", e);
+        }
+    }
+    
+    /**
+     * Banka status'unu payment status'una map et
+     */
+    private Payment.PaymentStatus mapBankStatusToPaymentStatus(String bankStatus) {
+        switch (bankStatus.toUpperCase()) {
+            case "SUCCESS":
+            case "COMPLETED":
+                return Payment.PaymentStatus.COMPLETED;
+            case "FAILED":
+            case "REJECTED":
+                return Payment.PaymentStatus.FAILED;
+            case "PROCESSING":
+            case "PENDING":
+                return Payment.PaymentStatus.PROCESSING;
+            case "CANCELLED":
+                return Payment.PaymentStatus.CANCELLED;
+            default:
+                log.warn("Unknown bank status: {}, defaulting to PROCESSING", bankStatus);
+                return Payment.PaymentStatus.PROCESSING;
         }
     }
     

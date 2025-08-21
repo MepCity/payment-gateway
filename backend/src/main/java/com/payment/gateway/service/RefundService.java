@@ -2,7 +2,6 @@ package com.payment.gateway.service;
 
 import com.payment.gateway.dto.RefundRequest;
 import com.payment.gateway.dto.RefundResponse;
-import com.payment.gateway.dto.WebhookDeliveryRequest;
 import com.payment.gateway.model.Refund;
 import com.payment.gateway.repository.RefundRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.payment.gateway.service.AuditService;
 import com.payment.gateway.model.AuditLog;
-import com.payment.gateway.dto.SimulateWebhookRequest;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,7 +28,6 @@ public class RefundService {
     private final RefundRepository refundRepository;
     private final AuditService auditService;
     private final PaymentService paymentService;
-    private final WebhookService webhookService;
     
     public RefundResponse createRefund(RefundRequest request) {
         try {
@@ -78,12 +76,9 @@ public class RefundService {
             refund.setDescription(request.getDescription());
             refund.setRefundDate(LocalDateTime.now());
             
-            // İlk olarak PROCESSING status'u ile başla
-            refund.setStatus(Refund.RefundStatus.PROCESSING);
-            refund.setGatewayResponse("Refund request sent to bank - processing");
-            refund.setGatewayRefundId("GREF-" + UUID.randomUUID().toString().substring(0, 8));
-            
-            // Bank webhook'u bekleyecek, şimdilik PROCESSING olarak bırak
+            // Process refund through gateway (simulated)
+            Refund.RefundStatus finalStatus = processRefundThroughGateway(refund);
+            refund.setStatus(finalStatus);
             
             // Save refund
             Refund savedRefund = refundRepository.save(refund);
@@ -548,12 +543,12 @@ public class RefundService {
             // Bu örnekte basit string parsing kullanıyoruz
             String[] parts = webhookData.split("\\|");
             if (parts.length >= 3) {
-                String gatewayRefundId = parts[0];
+                String refundId = parts[0];
                 String status = parts[1];
                 String message = parts[2];
                 
-                // Gateway refund ID ile refund'ı bul
-                Optional<Refund> refundOpt = refundRepository.findByGatewayRefundId(gatewayRefundId);
+                // Refund ID ile refund'ı bul
+                Optional<Refund> refundOpt = refundRepository.findByRefundId(refundId);
                 if (refundOpt.isPresent()) {
                     Refund refund = refundOpt.get();
                     
@@ -591,7 +586,7 @@ public class RefundService {
                     notifyMerchantAboutRefundStatus(refund);
                     
                 } else {
-                    log.warn("Refund not found for gateway refund ID: {}", gatewayRefundId);
+                    log.warn("Refund not found for refund ID: {}", refundId);
                 }
             } else {
                 log.error("Invalid webhook data format: {}", webhookData);
@@ -633,95 +628,26 @@ public class RefundService {
             log.info("Notifying merchant {} about refund status change for refund ID: {}", 
                     refund.getMerchantId(), refund.getRefundId());
             
-            // Bu kısım WebhookService ile entegre edilebilir
-            // Şimdilik sadece log yazıyoruz
-            String notificationMessage = String.format(
-                "Refund status updated to %s for amount %s %s. Refund ID: %s",
-                refund.getStatus(), refund.getAmount(), refund.getCurrency(), refund.getRefundId()
-            );
+            // WebhookService ile merchant'a webhook gönder (şimdilik sadece log)
+            String eventType;
+            switch (refund.getStatus()) {
+                case COMPLETED:
+                    eventType = "REFUND_COMPLETED";
+                    break;
+                case FAILED:
+                    eventType = "REFUND_FAILED";
+                    break;
+                case PROCESSING:
+                    eventType = "REFUND_CREATED";
+                    break;
+                default:
+                    eventType = "REFUND_CREATED";
+            }
             
-            log.info("Merchant notification: {}", notificationMessage);
+            log.info("Webhook would be triggered for merchant {} - Event: {} (temporarily disabled)", refund.getMerchantId(), eventType);
             
         } catch (Exception e) {
             log.error("Error notifying merchant about refund status: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * Simulate bank webhook for testing purposes
-     */
-    public RefundResponse simulateBankWebhook(String refundId, SimulateWebhookRequest request) {
-        try {
-            log.info("Simulating bank webhook for refund: {} with status: {}", refundId, request.getStatus());
-            
-            // Find refund by refund ID
-            Optional<Refund> refundOpt = refundRepository.findByRefundId(refundId);
-            if (refundOpt.isEmpty()) {
-                return createErrorResponse("Refund not found with ID: " + refundId);
-            }
-            
-            Refund refund = refundOpt.get();
-            
-            // Map webhook status to refund status
-            Refund.RefundStatus newStatus = mapWebhookStatusToRefundStatus(request.getStatus());
-            
-            // Update refund status
-            refund.setStatus(newStatus);
-            refund.setGatewayResponse("Simulated " + request.getBankType() + " webhook: " + request.getMessage());
-            refund.setUpdatedAt(LocalDateTime.now());
-            
-            // If completed, set refund date
-            if (newStatus == Refund.RefundStatus.COMPLETED) {
-                refund.setRefundDate(LocalDateTime.now());
-            }
-            
-            // Save refund
-            Refund savedRefund = refundRepository.save(refund);
-            
-            // Audit logging
-            auditService.createEvent()
-                .eventType("REFUND_STATUS_UPDATED_VIA_SIMULATED_WEBHOOK")
-                .severity(AuditLog.Severity.MEDIUM)
-                .actor("test-system")
-                .action("UPDATE")
-                .resourceType("REFUND")
-                .resourceId(refundId)
-                .newValues(savedRefund)
-                .additionalData("bankType", request.getBankType())
-                .additionalData("newStatus", newStatus.toString())
-                .additionalData("webhookMessage", request.getMessage())
-                .additionalData("simulated", "true")
-                .complianceTag("PCI_DSS")
-                .log();
-            
-            log.info("Refund {} status updated via simulated webhook to {}", refundId, newStatus);
-            return createRefundResponse(savedRefund, "Refund status updated via simulated webhook", true);
-            
-        } catch (Exception e) {
-            log.error("Error simulating bank webhook: {}", e.getMessage());
-            return createErrorResponse("Failed to simulate webhook: " + e.getMessage());
-        }
-    }
-    
-    /**
-     * Map webhook status to refund status
-     */
-    private Refund.RefundStatus mapWebhookStatusToRefundStatus(String webhookStatus) {
-        switch (webhookStatus.toUpperCase()) {
-            case "SUCCESS":
-            case "COMPLETED":
-                return Refund.RefundStatus.COMPLETED;
-            case "FAILED":
-            case "REJECTED":
-                return Refund.RefundStatus.FAILED;
-            case "PROCESSING":
-            case "PENDING":
-                return Refund.RefundStatus.PROCESSING;
-            case "CANCELLED":
-                return Refund.RefundStatus.CANCELLED;
-            default:
-                log.warn("Unknown webhook status: {}, defaulting to PROCESSING", webhookStatus);
-                return Refund.RefundStatus.PROCESSING;
         }
     }
 }
