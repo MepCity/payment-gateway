@@ -13,7 +13,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/merchants")
+@RequestMapping("/v1/merchants")
 @RequiredArgsConstructor
 @Slf4j
 public class MerchantController {

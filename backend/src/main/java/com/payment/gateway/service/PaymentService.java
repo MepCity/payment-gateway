@@ -5,6 +5,7 @@ import com.payment.gateway.dto.PaymentResponse;
 import com.payment.gateway.model.Payment;
 import com.payment.gateway.model.RiskAssessment;
 import com.payment.gateway.repository.PaymentRepository;
+import com.payment.gateway.model.AuditLog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -215,6 +216,15 @@ public class PaymentService {
         }
     }
     
+    public PaymentResponse getPaymentByPaymentId(String paymentId) {
+        Optional<Payment> payment = paymentRepository.findByPaymentId(paymentId);
+        if (payment.isPresent()) {
+            return createPaymentResponse(payment.get(), "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with payment ID: " + paymentId);
+        }
+    }
+    
     public List<PaymentResponse> getAllPayments() {
         List<Payment> payments = paymentRepository.findAll();
         return payments.stream()
@@ -299,42 +309,8 @@ public class PaymentService {
             return createErrorResponse("Payment not found with ID: " + id);
         }
     }
-    
-    public PaymentResponse refundPayment(Long id) {
-        Optional<Payment> paymentOpt = paymentRepository.findById(id);
-        if (paymentOpt.isPresent()) {
-            Payment payment = paymentOpt.get();
-            
-            if (payment.getStatus() == Payment.PaymentStatus.COMPLETED) {
-                payment.setStatus(Payment.PaymentStatus.REFUNDED);
-                payment.setGatewayResponse("Payment refunded");
-                Payment updatedPayment = paymentRepository.save(payment);
-                
-                // Audit log - Payment refund
-                auditService.logEvent(
-                    auditService.createEvent()
-                        .eventType("PAYMENT")
-                        .action("REFUND")
-                        .actor("api-user")
-                        .resourceType("Payment")
-                        .resourceId(payment.getPaymentId())
-                        .additionalData("transactionId", payment.getTransactionId())
-                        .additionalData("amount", payment.getAmount())
-                        .additionalData("currency", payment.getCurrency())
-                        .additionalData("refundReason", "Manual refund request")
-                        .complianceTag("PCI_DSS")
-                        .complianceTag("GDPR")
-                );
-                
-                log.info("Payment refunded successfully with ID: {}", id);
-                return createPaymentResponse(updatedPayment, "Payment refunded successfully", true);
-            } else {
-                return createErrorResponse("Cannot refund payment with status: " + payment.getStatus());
-            }
-        } else {
-            return createErrorResponse("Payment not found with ID: " + id);
-        }
-    }
+    /* */
+
     
     /**
      * 3D Secure sürecini tamamlar
@@ -522,75 +498,397 @@ public class PaymentService {
         log.info("Processing payment through gateway for payment: {}", payment.getPaymentId());
         
         try {
-            // Önce gerçek banka entegrasyonunu dene
-            RealBankIntegrationService.BankPaymentResult bankResult = 
-                realBankIntegrationService.processPayment(request, payment);
+            // Banka entegrasyonu - gerçek banka API'sine istek at
+            Payment.PaymentStatus bankResponse = processPaymentWithBank(request, payment);
             
-            if (bankResult != null) {
-                // Gerçek banka yanıtı var
-                log.info("Real bank integration response received for payment: {}", payment.getPaymentId());
-                
-                if (bankResult.isRequires3DSecure()) {
-                    // 3D Secure gerekli - bu durumda frontend'e özel yanıt dönmemiz gerekecek
-                    log.info("3D Secure required for payment: {}, URL: {}", payment.getPaymentId(), bankResult.getThreeDSecureUrl());
-                    payment.setGatewayResponse("3D Secure authentication required: " + bankResult.getThreeDSecureUrl());
-                    payment.setGatewayTransactionId("3DS-" + UUID.randomUUID().toString().substring(0, 8));
-                    return Payment.PaymentStatus.PENDING; // 3D Secure bekliyor
-                    
-                } else if (bankResult.isSuccess()) {
-                    // Başarılı
-                    payment.setGatewayResponse(bankResult.getBankResponseMessage());
-                    payment.setGatewayTransactionId(bankResult.getBankTransactionId());
-                    if (bankResult.getCompletedAt() != null) {
-                        payment.setCompletedAt(bankResult.getCompletedAt());
-                    }
-                    return Payment.PaymentStatus.COMPLETED;
-                    
-                } else {
-                    // Hata
-                    payment.setGatewayResponse(bankResult.getErrorMessage() != null ? 
-                        bankResult.getErrorMessage() : bankResult.getBankResponseMessage());
-                    payment.setGatewayTransactionId("ERR-" + UUID.randomUUID().toString().substring(0, 8));
-                    return Payment.PaymentStatus.FAILED;
-                }
+            if (bankResponse == Payment.PaymentStatus.PROCESSING) {
+                payment.setGatewayResponse("Payment request sent to bank - processing");
+                payment.setGatewayTransactionId("GTW-" + UUID.randomUUID().toString().substring(0, 8));
+            } else if (bankResponse == Payment.PaymentStatus.FAILED) {
+                payment.setGatewayResponse("Bank rejected payment request");
+                payment.setGatewayTransactionId("GTW-" + UUID.randomUUID().toString().substring(0, 8));
             }
             
-            // Gerçek banka entegrasyonu yoksa simülasyon moduna geç
-            log.info("Falling back to simulation mode for payment: {}", payment.getPaymentId());
-            return processSimulatedPayment(payment);
+            return bankResponse;
             
         } catch (Exception e) {
-            log.error("Error processing payment through gateway", e);
+            log.error("Error processing payment through gateway: {}", e.getMessage());
             payment.setGatewayResponse("Gateway error: " + e.getMessage());
-            payment.setGatewayTransactionId("ERR-" + UUID.randomUUID().toString().substring(0, 8));
             return Payment.PaymentStatus.FAILED;
         }
     }
     
     /**
-     * Simülasyon modu - mevcut mantık
+     * Banka'ya payment isteği gönder
      */
-    private Payment.PaymentStatus processSimulatedPayment(Payment payment) {
+    private Payment.PaymentStatus processPaymentWithBank(PaymentRequest request, Payment payment) {
         try {
-            // Simulate processing time
-            Thread.sleep(100);
+            // Payment bilgilerini al (hangi banka ile yapıldığını öğrenmek için)
+            String bankType = determineBankType(payment.getTransactionId());
             
-            // Simulate success/failure based on card number
-            if (payment.getCardNumber().endsWith("0000")) {
-                payment.setGatewayResponse("Payment failed: Invalid card");
-                payment.setGatewayTransactionId("GTW-" + UUID.randomUUID().toString().substring(0, 8));
-                return Payment.PaymentStatus.FAILED;
-            } else {
-                payment.setGatewayResponse("Payment processed successfully");
-                payment.setGatewayTransactionId("GTW-" + UUID.randomUUID().toString().substring(0, 8));
-                return Payment.PaymentStatus.COMPLETED;
+            switch (bankType) {
+                case "GARANTI":
+                    return processPaymentWithGaranti(request, payment);
+                case "ISBANK":
+                    return processPaymentWithIsBank(request, payment);
+                case "AKBANK":
+                    return processPaymentWithAkbank(request, payment);
+                default:
+                    log.error("Unknown bank type for transaction: {}", payment.getTransactionId());
+                    return Payment.PaymentStatus.FAILED;
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            payment.setGatewayResponse("Payment processing interrupted");
+            
+        } catch (Exception e) {
+            log.error("Error determining bank type: {}", e.getMessage());
             return Payment.PaymentStatus.FAILED;
         }
     }
+    
+    /**
+     * Transaction ID'den banka tipini belirle
+     */
+    private String determineBankType(String transactionId) {
+        // Transaction ID formatına göre banka belirleme
+        if (transactionId.startsWith("GAR")) {
+            return "GARANTI";
+        } else if (transactionId.startsWith("ISB")) {
+            return "ISBANK";
+        } else if (transactionId.startsWith("AKB")) {
+            return "AKBANK";
+        } else if (transactionId.startsWith("TXN-")) {
+            // TXN- ile başlayan transaction ID'ler için default olarak Garanti kullan
+            log.info("Transaction ID {} TXN- format detected, using GARANTI as default bank", transactionId);
+            return "GARANTI";
+        } else {
+            return "UNKNOWN";
+        }
+    }
+    
+    /**
+     * Garanti BBVA'ya payment isteği gönder
+     */
+    private Payment.PaymentStatus processPaymentWithGaranti(PaymentRequest request, Payment payment) {
+        try {
+            log.info("Sending payment request to Garanti BBVA for amount: {}", payment.getAmount());
+            
+            // Garanti BBVA API'sine payment isteği
+            String garantiResponse = sendPaymentRequestToGaranti(request, payment);
+            
+            if (garantiResponse.contains("SUCCESS")) {
+                log.info("Garanti BBVA payment request successful");
+                return Payment.PaymentStatus.PROCESSING;
+            } else {
+                log.error("Garanti BBVA payment request failed: {}", garantiResponse);
+                return Payment.PaymentStatus.FAILED;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing payment with Garanti BBVA: {}", e.getMessage());
+            return Payment.PaymentStatus.FAILED;
+        }
+    }
+    
+    /**
+     * İş Bankası'na payment isteği gönder
+     */
+    private Payment.PaymentStatus processPaymentWithIsBank(PaymentRequest request, Payment payment) {
+        try {
+            log.info("Sending payment request to İş Bankası for amount: {}", payment.getAmount());
+            
+            // İş Bankası API'sine payment isteği
+            String isbankResponse = sendPaymentRequestToIsBank(request, payment);
+            
+            if (isbankResponse.contains("SUCCESS")) {
+                payment.setGatewayResponse("İş Bankası payment request successful");
+                return Payment.PaymentStatus.PROCESSING;
+            } else {
+                log.error("İş Bankası payment request failed: {}", isbankResponse);
+                return Payment.PaymentStatus.FAILED;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing payment with İş Bankası: {}", e.getMessage());
+            return Payment.PaymentStatus.FAILED;
+        }
+    }
+    
+    /**
+     * Akbank'a payment isteği gönder
+     */
+    private Payment.PaymentStatus processPaymentWithAkbank(PaymentRequest request, Payment payment) {
+        try {
+            log.info("Sending payment request to Akbank for amount: {}", payment.getAmount());
+            
+            // Akbank API'sine payment isteği
+            String akbankResponse = sendPaymentRequestToAkbank(request, payment);
+            
+            if (akbankResponse.contains("SUCCESS")) {
+                log.info("Akbank payment request successful");
+                return Payment.PaymentStatus.PROCESSING;
+            } else {
+                log.error("Akbank payment request failed: {}", akbankResponse);
+                return Payment.PaymentStatus.FAILED;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing payment with Akbank: {}", e.getMessage());
+            return Payment.PaymentStatus.FAILED;
+        }
+    }
+    
+    /**
+     * Garanti BBVA API'sine payment isteği gönder (simulated)
+     */
+    private String sendPaymentRequestToGaranti(PaymentRequest request, Payment payment) {
+        // Simulated Garanti BBVA API call
+        try {
+            Thread.sleep(200); // Simulate API call delay
+            
+            // Simulate success - çok yüksek limitler koyalım ki hep SUCCESS dönsün
+            if (payment.getAmount().compareTo(java.math.BigDecimal.valueOf(100000)) > 0) {
+                return "FAILED: Amount exceeds limit";
+            } else {
+                return "SUCCESS: Payment request accepted - processing";
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "FAILED: Request interrupted";
+        }
+    }
+    
+    /**
+     * İş Bankası API'sine payment isteği gönder (simulated)
+     */
+    private String sendPaymentRequestToIsBank(PaymentRequest request, Payment payment) {
+        // Simulated İş Bankası API call
+        try {
+            Thread.sleep(150); // Simulate API call delay
+            
+            if (payment.getAmount().compareTo(java.math.BigDecimal.valueOf(100000)) > 0) {
+                return "FAILED: Amount exceeds limit";
+            } else {
+                return "SUCCESS: Payment request accepted - processing";
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "FAILED: Request interrupted";
+        }
+    }
+    
+    /**
+     * Akbank API'sine payment isteği gönder (simulated)
+     */
+    private String sendPaymentRequestToAkbank(PaymentRequest request, Payment payment) {
+        // Simulated Akbank API call
+        try {
+            Thread.sleep(180); // Simulate API call delay
+            
+            if (payment.getAmount().compareTo(java.math.BigDecimal.valueOf(100000)) > 0) {
+                return "FAILED: Amount exceeds limit";
+            } else {
+                return "SUCCESS: Payment request accepted - processing";
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "FAILED: Request interrupted";
+        }
+    }
+    
+    /**
+     * Banka webhook callback'i geldiğinde payment status'u güncelle
+     */
+    public PaymentResponse handleBankWebhook(String transactionId, String bankTransactionId, 
+                                          String authCode, String amount, String currency, boolean success) {
+        log.info("🏦 Bank webhook received for transaction: {} - Success: {}", transactionId, success);
+        
+        try {
+            // Transaction ID ile payment'i bul
+            Payment payment = paymentRepository.findByTransactionId(transactionId)
+                .orElseThrow(() -> new RuntimeException("Payment not found for transaction: " + transactionId));
+            
+            if (success) {
+                // Başarılı ödeme
+                payment.setStatus(Payment.PaymentStatus.COMPLETED);
+                payment.setGatewayResponse("Payment completed via bank webhook");
+                payment.setGatewayTransactionId(bankTransactionId);
+                payment.setCompletedAt(LocalDateTime.now());
+                
+                log.info("✅ Payment {} completed via bank webhook", payment.getPaymentId());
+                
+                // Merchant'a başarı webhook'u gönder
+                sendPaymentSuccessWebhook(payment);
+                
+            } else {
+                // Başarısız ödeme
+                payment.setStatus(Payment.PaymentStatus.FAILED);
+                payment.setGatewayResponse("Payment failed via bank webhook");
+                payment.setGatewayTransactionId(bankTransactionId);
+                
+                log.warn("❌ Payment {} failed via bank webhook", payment.getPaymentId());
+                
+                // Merchant'a başarısızlık webhook'u gönder
+                sendPaymentFailureWebhook(payment);
+            }
+            
+            // Payment'i kaydet
+            log.info("💾 Saving payment to database - ID: {}, Status: {}", payment.getPaymentId(), payment.getStatus());
+            try {
+                payment = paymentRepository.save(payment);
+                log.info("✅ Payment saved successfully - ID: {}, Final Status: {}", payment.getPaymentId(), payment.getStatus());
+            } catch (Exception e) {
+                log.error("❌ Error saving payment to database: {}", e.getMessage(), e);
+                throw e;
+            }
+            
+            // Audit log
+            auditService.logEvent(
+                auditService.createEvent()
+                    .eventType("PAYMENT")
+                    .action(success ? "BANK_WEBHOOK_SUCCESS" : "BANK_WEBHOOK_FAILURE")
+                    .actor("bank")
+                    .resourceType("Payment")
+                    .resourceId(payment.getPaymentId())
+                    .additionalData("transactionId", transactionId)
+                    .additionalData("bankTransactionId", bankTransactionId)
+                    .additionalData("authCode", authCode)
+                    .additionalData("amount", amount)
+                    .additionalData("currency", currency)
+                    .complianceTag("PCI_DSS")
+                    .complianceTag("KVKK")
+            );
+            
+            return createPaymentResponse(payment, 
+                success ? "Payment completed via bank webhook" : "Payment failed via bank webhook", 
+                success);
+                
+        } catch (Exception e) {
+            log.error("Error handling bank webhook for transaction: {}", transactionId, e);
+            throw new RuntimeException("Failed to process bank webhook: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Merchant'a başarılı payment webhook'u gönder
+     */
+    private void sendPaymentSuccessWebhook(Payment payment) {
+        try {
+            log.info("Sending success webhook to merchant for payment: {}", payment.getPaymentId());
+            // TODO: Implement merchant webhook notification
+            // Bu kısımda merchant'ın webhook URL'ine POST isteği gönderilir
+            // Şimdilik sadece log yazıyoruz
+        } catch (Exception e) {
+            log.error("Error sending success webhook to merchant for payment: {}", payment.getPaymentId(), e);
+        }
+    }
+    
+    /**
+     * Merchant'a başarısız payment webhook'u gönder
+     */
+    private void sendPaymentFailureWebhook(Payment payment) {
+        try {
+            log.info("Sending failure webhook to merchant for payment: {}", payment.getPaymentId());
+            // TODO: Implement merchant webhook notification
+            // Bu kısımda merchant'ın webhook URL'ine POST isteği gönderilir
+            // Şimdilik sadece log yazıyoruz
+        } catch (Exception e) {
+            log.error("Error sending failure webhook to merchant for payment: {}", payment.getPaymentId(), e);
+        }
+    }
+    
+    /**
+     * Banka'dan gelen payment webhook'ını işle
+     */
+    public void processBankPaymentWebhook(String bankType, String webhookData) {
+        try {
+            log.info("Processing {} payment webhook: {}", bankType, webhookData);
+            
+            // Webhook data'sını parse et (gerçek implementasyonda JSON parsing yapılır)
+            // Bu örnekte basit string parsing kullanıyoruz
+            String[] parts = webhookData.split("\\|");
+            if (parts.length >= 3) {
+                String paymentId = parts[0];
+                String status = parts[1];
+                String message = parts[2];
+                
+                // Payment ID ile payment'ı bul
+                Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
+                if (paymentOpt.isPresent()) {
+                    Payment payment = paymentOpt.get();
+                    
+                    // Banka'dan gelen status'a göre güncelle
+                    Payment.PaymentStatus newStatus = mapBankStatusToPaymentStatus(status);
+                    payment.setStatus(newStatus);
+                    payment.setGatewayResponse(bankType + " webhook: " + message);
+                    payment.setUpdatedAt(LocalDateTime.now());
+                    
+                    // Eğer payment tamamlandıysa tarih ekle
+                    if (newStatus == Payment.PaymentStatus.COMPLETED) {
+                        payment.setCompletedAt(LocalDateTime.now());
+                    }
+                    
+                    paymentRepository.save(payment);
+                    
+                    // Audit logging
+                    auditService.logEvent(
+                        auditService.createEvent()
+                            .eventType("PAYMENT_STATUS_UPDATED_VIA_WEBHOOK")
+                            .severity(AuditLog.Severity.MEDIUM)
+                            .actor(bankType)
+                            .action("UPDATE")
+                            .resourceType("PAYMENT")
+                            .resourceId(payment.getPaymentId())
+                            .additionalData("bankType", bankType)
+                            .additionalData("newStatus", newStatus.toString())
+                            .additionalData("webhookMessage", message)
+                            .complianceTag("PCI_DSS")
+                    );
+                    
+                    log.info("Payment status updated via {} webhook to {} for payment ID: {}", 
+                            bankType, newStatus, payment.getPaymentId());
+                    
+                    // Merchant'a webhook gönder (payment durumu değişti)
+                    if (newStatus == Payment.PaymentStatus.COMPLETED) {
+                        sendPaymentSuccessWebhook(payment);
+                    } else if (newStatus == Payment.PaymentStatus.FAILED) {
+                        sendPaymentFailureWebhook(payment);
+                    }
+                    
+                } else {
+                    log.warn("Payment not found for payment ID: {}", paymentId);
+                }
+            } else {
+                log.error("Invalid webhook data format: {}", webhookData);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing {} payment webhook: {}", bankType, e.getMessage());
+            throw new RuntimeException("Failed to process payment webhook", e);
+        }
+    }
+    
+    /**
+     * Banka status'unu payment status'una map et
+     */
+    private Payment.PaymentStatus mapBankStatusToPaymentStatus(String bankStatus) {
+        switch (bankStatus.toUpperCase()) {
+            case "SUCCESS":
+            case "COMPLETED":
+                return Payment.PaymentStatus.COMPLETED;
+            case "FAILED":
+            case "REJECTED":
+                return Payment.PaymentStatus.FAILED;
+            case "PROCESSING":
+            case "PENDING":
+                return Payment.PaymentStatus.PROCESSING;
+            case "CANCELLED":
+                return Payment.PaymentStatus.CANCELLED;
+            default:
+                log.warn("Unknown bank status: {}, defaulting to PROCESSING", bankStatus);
+                return Payment.PaymentStatus.PROCESSING;
+        }
+    }
+    
+
     
     private PaymentResponse createPaymentResponse(Payment payment, String message, boolean success) {
         PaymentResponse response = new PaymentResponse();

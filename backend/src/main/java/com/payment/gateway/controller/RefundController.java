@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/refunds")
@@ -31,6 +33,34 @@ public class RefundController {
         
         if (response.isSuccess()) {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // PUT - Complete/Approve a refund manually (for admin dashboard)
+    @PutMapping("/{refundId}/complete")
+    public ResponseEntity<RefundResponse> completeRefund(@PathVariable String refundId) {
+        log.info("Manually completing refund: {}", refundId);
+        
+        RefundResponse response = refundService.completeRefund(refundId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // PUT - Cancel/Reject a refund manually
+    @PutMapping("/{refundId}/cancel")
+    public ResponseEntity<RefundResponse> cancelRefund(@PathVariable String refundId) {
+        log.info("Manually cancelling refund: {}", refundId);
+        
+        RefundResponse response = refundService.cancelRefund(refundId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.badRequest().body(response);
         }
@@ -86,6 +116,8 @@ public class RefundController {
         List<RefundResponse> refunds = refundService.getAllRefunds();
         return ResponseEntity.ok(refunds);
     }
+    
+
     
     // GET - Get refunds by merchant ID
     @GetMapping("/merchant/{merchantId}")
@@ -202,6 +234,45 @@ public class RefundController {
         } catch (Exception e) {
             log.error("Error processing Akbank refund webhook: {}", e.getMessage());
             return ResponseEntity.badRequest().body("Webhook processing failed");
+        }
+    }
+    
+    /**
+     * Banka'dan gelen refund webhook'ını simüle et (test için)
+     */
+    @PostMapping("/{refundId}/simulate-bank-webhook")
+    public ResponseEntity<Map<String, Object>> simulateBankWebhook(
+            @PathVariable String refundId,
+            @RequestParam(defaultValue = "SUCCESS") String status,
+            @RequestParam(defaultValue = "GARANTI") String bankType) {
+        
+        log.info("🏦 Simulating bank webhook for refund: {} - Status: {} - Bank: {}", refundId, status, bankType);
+        
+        try {
+            // Webhook data formatı: refundId|status|message
+            String webhookData = refundId + "|" + status + "|" + bankType + " refund processed successfully";
+            
+            // RefundService'deki webhook processing metodunu çağır
+            refundService.processBankRefundWebhook(bankType, webhookData);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "Bank webhook simulated successfully");
+            result.put("refundId", refundId);
+            result.put("status", status);
+            result.put("bankType", bankType);
+            result.put("webhookData", webhookData);
+            
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            log.error("Error simulating bank webhook for refund: {}", refundId, e);
+            
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("success", false);
+            errorResult.put("message", "Failed to simulate bank webhook: " + e.getMessage());
+            
+            return ResponseEntity.badRequest().body(errorResult);
         }
     }
 }

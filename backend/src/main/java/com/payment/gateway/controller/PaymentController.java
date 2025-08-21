@@ -5,6 +5,7 @@ import com.payment.gateway.dto.PaymentResponse;
 import com.payment.gateway.model.Payment;
 import com.payment.gateway.service.PaymentService;
 import com.payment.gateway.service.MerchantAuthService;
+import com.payment.gateway.repository.PaymentRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,15 +17,17 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/v1/payments")
+@RequestMapping("/v1/payments")
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentController {
 
     private final PaymentService paymentService;
     private final MerchantAuthService merchantAuthService;
+    private final PaymentRepository paymentRepository;
 
     // POST - Create new payment
     @PostMapping
@@ -101,7 +104,21 @@ public class PaymentController {
             return ResponseEntity.notFound().build();
         }
     }
-
+    
+    // GET - Get payment by payment ID
+    @GetMapping("/payment/{paymentId}")
+    public ResponseEntity<PaymentResponse> getPaymentByPaymentId(@PathVariable String paymentId) {
+        log.info("Retrieving payment with payment ID: {}", paymentId);
+        
+        PaymentResponse response = paymentService.getPaymentByPaymentId(paymentId);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
     // GET - Get all payments
     @GetMapping
     public ResponseEntity<List<PaymentResponse>> getAllPayments() {
@@ -168,19 +185,7 @@ public class PaymentController {
         }
     }
 
-    // POST - Refund payment
-    @PostMapping("/{id}/refund")
-    public ResponseEntity<PaymentResponse> refundPayment(@PathVariable Long id) {
-        log.info("Refunding payment with ID: {}", id);
 
-        PaymentResponse response = paymentService.refundPayment(id);
-
-        if (response.isSuccess()) {
-            return ResponseEntity.ok(response);
-        } else {
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
 
     // 3D Secure Success Callback
     @PostMapping("/3d-callback/success")
@@ -270,6 +275,100 @@ public class PaymentController {
 
 
 
+    // ===== BANK WEBHOOK ENDPOINTS =====
+    
+    /**
+     * Banka webhook callback'i - Ödeme sonucu geldiğinde
+     */
+    @PostMapping("/bank-webhook")
+    public ResponseEntity<Map<String, String>> handleBankWebhook(@RequestBody Map<String, Object> webhookData) {
+        log.info("🏦 Bank webhook received: {}", webhookData);
+        
+        try {
+            // Webhook verilerini parse et
+            String transactionId = (String) webhookData.get("transactionId");
+            String bankTransactionId = (String) webhookData.get("bankTransactionId");
+            String authCode = (String) webhookData.get("authCode");
+            String amount = (String) webhookData.get("amount");
+            String currency = (String) webhookData.get("currency");
+            Boolean success = (Boolean) webhookData.get("success");
+            
+            if (transactionId == null || success == null) {
+                log.error("❌ Invalid webhook data - missing required fields");
+                return ResponseEntity.badRequest().body(Map.of("error", "Missing required fields"));
+            }
+            
+            // Payment status'u güncelle
+            PaymentResponse response = paymentService.handleBankWebhook(
+                transactionId, bankTransactionId, authCode, amount, currency, success);
+            
+            log.info("✅ Bank webhook processed successfully for transaction: {}", transactionId);
+            
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Webhook processed successfully",
+                "paymentId", response.getPaymentId(),
+                "finalStatus", response.getStatus().name()
+            ));
+            
+        } catch (Exception e) {
+            log.error("❌ Error processing bank webhook", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to process webhook: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Banka'dan gelen payment webhook'ını simüle et (test için)
+     */
+    @PostMapping("/{transactionId}/simulate-bank-webhook")
+    public ResponseEntity<Map<String, Object>> simulateBankWebhook(
+            @PathVariable String transactionId,
+            @RequestParam(defaultValue = "SUCCESS") String status,
+            @RequestParam(defaultValue = "GARANTI") String bankType) {
+        
+        log.info("🏦 Simulating bank webhook for payment with transactionId: {} - Status: {} - Bank: {}", transactionId, status, bankType);
+        
+        try {
+            // Payment'ı transactionId ile bul
+            Optional<Payment> paymentOpt = paymentRepository.findByTransactionId(transactionId);
+            if (!paymentOpt.isPresent()) {
+                Map<String, Object> errorResult = new HashMap<>();
+                errorResult.put("success", false);
+                errorResult.put("message", "Payment not found with ID: " + transactionId);
+                return ResponseEntity.badRequest().body(errorResult);
+            }
+            
+            Payment payment = paymentOpt.get();
+            
+            // Webhook data formatı: paymentId|status|message
+            String webhookData = transactionId + "|" + status + "|" + bankType + " payment processed successfully";
+            
+            // PaymentService'deki webhook processing metodunu çağır
+            paymentService.processBankPaymentWebhook(bankType, webhookData);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "Bank webhook simulated successfully");
+            result.put("transactionId", transactionId);
+            result.put("paymentId", payment.getPaymentId());
+            result.put("status", status);
+            result.put("bankType", bankType);
+            result.put("webhookData", webhookData);
+            
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            log.error("Error simulating bank webhook for payment with transactionId: {}", transactionId, e);
+            
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("success", false);
+            errorResult.put("message", "Failed to simulate bank webhook: " + e.getMessage());
+            
+            return ResponseEntity.badRequest().body(errorResult);
+        }
+    }
+    
     /**
      * Extract client IP address from HTTP request
      * Handles proxy headers like X-Forwarded-For, X-Real-IP

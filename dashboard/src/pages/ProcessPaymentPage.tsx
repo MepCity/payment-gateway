@@ -19,8 +19,10 @@ import {
   CreditCard,
   AccountBalance,
   Security,
+  Sync
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { paymentApi, PaymentRequest } from '../services/paymentApi';
 
 interface PaymentFormData {
@@ -59,10 +61,11 @@ function TabPanel(props: TabPanelProps) {
 
 const ProcessPaymentPage: React.FC = () => {
   const { state } = useAuth();
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [formData, setFormData] = useState<PaymentFormData>({
     customerId: 'hyperswitch_sdk_demo_id',
-    amount: '44',
+    amount: '',
     currency: 'USD',
     paymentMethod: 'CREDIT_CARD',
     cardNumber: '',
@@ -74,7 +77,15 @@ const ProcessPaymentPage: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+    const [success, setSuccess] = useState<{
+    message: string;
+    paymentId: string;
+    transactionId: string;
+    amount: number;
+    currency: string;
+    status: string;
+    cardLastFour?: string;
+  } | null>(null);  
   const [showSavedCard, setShowSavedCard] = useState(true);
 
   // Test card data
@@ -240,7 +251,89 @@ const ProcessPaymentPage: React.FC = () => {
       const response = await paymentApi.createPayment(paymentData);
       
       if (response.success) {
-        setSuccess(`Payment processed successfully! Transaction ID: ${response.transactionId}`);
+        // Save customer information to localStorage
+        if (formData.cardHolderName.trim()) {
+          const newCustomer = {
+            id: Date.now(),
+            customerId: formData.customerId || `customer_${Date.now()}`,
+            customerName: formData.cardHolderName.trim(),
+            email: formData.customerId.includes('@') ? formData.customerId : 'guest@example.com',
+            phoneCountryCode: undefined,
+            phone: undefined,
+            description: formData.description || 'Customer from payment',
+            address: undefined,
+            status: 'ACTIVE' as const,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastPaymentAt: new Date().toISOString(),
+            totalPayments: 1,
+            totalAmount: parseFloat(formData.amount),
+            currency: formData.currency,
+          };
+
+          // Get existing customers from localStorage
+          const existingCustomers = JSON.parse(localStorage.getItem('customers') || '[]');
+          
+          // Check if customer already exists
+          const existingCustomerIndex = existingCustomers.findIndex(
+            (c: any) => c.customerId === newCustomer.customerId
+          );
+
+          if (existingCustomerIndex >= 0) {
+            // Update existing customer
+            existingCustomers[existingCustomerIndex] = {
+              ...existingCustomers[existingCustomerIndex],
+              totalPayments: existingCustomers[existingCustomerIndex].totalPayments + 1,
+              totalAmount: existingCustomers[existingCustomerIndex].totalAmount + parseFloat(formData.amount),
+              lastPaymentAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+          } else {
+            // Add new customer
+            existingCustomers.push(newCustomer);
+          }
+
+          // Save back to localStorage
+          localStorage.setItem('customers', JSON.stringify(existingCustomers));
+        }
+
+        // Save payment information to localStorage for customer detail page
+        const paymentData = {
+          id: Date.now(),
+          paymentId: response.paymentId,
+          transactionId: response.transactionId,
+          merchantId: state.user?.merchantId || 'merchant_default',
+          customerId: formData.customerId,
+          amount: parseFloat(formData.amount),
+          currency: formData.currency,
+          status: 'COMPLETED', // Changed from 'SUCCEEDED' to 'COMPLETED'
+          paymentMethod: formData.paymentMethod,
+          cardNumber: formData.cardNumber.replace(/\s/g, ''),
+          cardHolderName: formData.cardHolderName,
+          expiryDate: formData.expiryDate,
+          description: formData.description,
+          createdAt: new Date().toISOString()
+        };
+
+        console.log('Saving payment data to localStorage:', paymentData);
+
+        // Get existing payments from localStorage
+        const existingPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+        existingPayments.push(paymentData);
+        localStorage.setItem('payments', JSON.stringify(existingPayments));
+        
+        console.log('Payment data saved to localStorage. Total payments:', existingPayments.length);
+        console.log('localStorage payments:', localStorage.getItem('payments'));
+
+        setSuccess({
+          message: 'Payment processed successfully!',
+          paymentId: response.paymentId,
+          transactionId: response.transactionId,
+          amount: response.amount,
+          currency: response.currency,
+          status: response.status,
+          cardLastFour: response.cardLastFour
+        });
         
         // Reset form
         setFormData({
@@ -285,15 +378,49 @@ const ProcessPaymentPage: React.FC = () => {
       )}
 
       {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess(null)}>
-          {success}
+        <Alert 
+          severity="success" 
+          sx={{ mb: 3 }} 
+          onClose={() => setSuccess(null)}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => navigate('/dashboard/payments')}
+              sx={{ textTransform: 'none' }}
+            >
+              View in Dashboard
+            </Button>
+          }
+        >
+          <Box>
+            <Typography variant="body1" sx={{ mb: 1 }}>
+              {success.message}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Amount: {success.amount} {success.currency}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Payment ID: {success.paymentId}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Status: {success.status}
+            </Typography>
+          </Box>
         </Alert>
       )}
 
       <Card>
         <CardContent>
           <form onSubmit={handleSubmit}>
-            <Box sx={{ mb: 3 }}>
+            <Box sx={{ 
+              mb: 3,
+              p: 3, 
+              bgcolor: 'background.paper', 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <AccountBalance />
                 Transaction Details
@@ -373,7 +500,13 @@ const ProcessPaymentPage: React.FC = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            <Box>
+            <Box sx={{ 
+              p: 3, 
+              bgcolor: 'background.paper', 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <CreditCard />
                 Card Information
@@ -445,7 +578,14 @@ const ProcessPaymentPage: React.FC = () => {
             </Box>
 
                          {/* Test Cards Section */}
-             <Box sx={{ mt: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+             <Box sx={{ 
+               mt: 4, 
+               p: 3, 
+               bgcolor: 'background.paper', 
+               borderRadius: 2,
+               border: '1px solid',
+               borderColor: 'divider'
+             }}>
                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                  <CreditCard />
                  Test Cards
@@ -519,7 +659,19 @@ const ProcessPaymentPage: React.FC = () => {
                 Clear Form
               </Button>
               
-              <Button
+              {success && (
+                <Button
+                  type="button"
+                  variant="outlined"
+                  color="success"
+                  onClick={() => navigate('/dashboard/payments')}
+                  startIcon={<Sync />}
+                >
+                  View in Dashboard
+                </Button>
+              )}
+              
+                  <Button
                 type="submit"
                 variant="contained"
                 disabled={loading}

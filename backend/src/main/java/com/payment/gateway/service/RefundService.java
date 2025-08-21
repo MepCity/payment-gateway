@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.payment.gateway.service.AuditService;
 import com.payment.gateway.model.AuditLog;
 
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -25,9 +27,38 @@ public class RefundService {
     
     private final RefundRepository refundRepository;
     private final AuditService auditService;
+    private final PaymentService paymentService;
     
     public RefundResponse createRefund(RefundRequest request) {
         try {
+            // Validate payment exists and get payment details
+            var paymentResponse = paymentService.getPaymentByPaymentId(request.getPaymentId());
+            BigDecimal originalAmount = paymentResponse.getAmount();
+            
+            // Get existing refunds for this payment
+            List<Refund> existingRefunds = refundRepository.findByPaymentId(request.getPaymentId())
+                .stream()
+                .filter(refund -> refund.getStatus() == Refund.RefundStatus.COMPLETED)
+                .collect(Collectors.toList());
+            
+            // Calculate total already refunded amount
+            BigDecimal totalRefunded = existingRefunds.stream()
+                .map(Refund::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            // Validate refund amount
+            BigDecimal availableAmount = originalAmount.subtract(totalRefunded);
+            if (request.getAmount().compareTo(availableAmount) > 0) {
+                throw new IllegalArgumentException(
+                    String.format("Refund amount %s exceeds available amount %s for payment %s", 
+                        request.getAmount(), availableAmount, request.getPaymentId())
+                );
+            }
+            
+            if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Refund amount must be greater than 0");
+            }
+            
             // Generate unique refund ID
             String refundId = generateRefundId();
             
@@ -181,6 +212,90 @@ public class RefundService {
         }
     }
     
+    public RefundResponse completeRefund(String refundId) {
+        try {
+            Optional<Refund> refundOpt = refundRepository.findByRefundId(refundId);
+            if (refundOpt.isEmpty()) {
+                return createErrorResponse("Refund not found with ID: " + refundId);
+            }
+            
+            Refund refund = refundOpt.get();
+            
+            if (refund.getStatus() != Refund.RefundStatus.PROCESSING) {
+                return createErrorResponse("Only PROCESSING refunds can be completed. Current status: " + refund.getStatus());
+            }
+            
+            // Manuel olarak tamamla
+            refund.setStatus(Refund.RefundStatus.COMPLETED);
+            refund.setGatewayResponse("Refund processed successfully - Manually approved");
+            refund.setUpdatedAt(LocalDateTime.now());
+            
+            Refund savedRefund = refundRepository.save(refund);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("REFUND_COMPLETED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("admin")
+                .action("UPDATE")
+                .resourceType("REFUND")
+                .resourceId(refundId)
+                .newValues(savedRefund)
+                .additionalData("action", "manual_completion")
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("Refund {} manually completed", refundId);
+            return createRefundResponse(savedRefund, "Refund completed successfully", true);
+            
+        } catch (Exception e) {
+            log.error("Error completing refund: {}", e.getMessage());
+            return createErrorResponse("Failed to complete refund: " + e.getMessage());
+        }
+    }
+    
+    public RefundResponse cancelRefund(String refundId) {
+        try {
+            Optional<Refund> refundOpt = refundRepository.findByRefundId(refundId);
+            if (refundOpt.isEmpty()) {
+                return createErrorResponse("Refund not found with ID: " + refundId);
+            }
+            
+            Refund refund = refundOpt.get();
+            
+            if (refund.getStatus() == Refund.RefundStatus.COMPLETED) {
+                return createErrorResponse("Cannot cancel a completed refund");
+            }
+            
+            // Manuel olarak iptal et
+            refund.setStatus(Refund.RefundStatus.FAILED);
+            refund.setGatewayResponse("Refund cancelled - Manually rejected");
+            refund.setUpdatedAt(LocalDateTime.now());
+            
+            Refund savedRefund = refundRepository.save(refund);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("REFUND_CANCELLED")
+                .severity(AuditLog.Severity.HIGH)
+                .actor("admin")
+                .action("UPDATE")
+                .resourceType("REFUND")
+                .resourceId(refundId)
+                .newValues(savedRefund)
+                .additionalData("action", "manual_cancellation")
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("Refund {} manually cancelled", refundId);
+            return createRefundResponse(savedRefund, "Refund cancelled successfully", true);
+            
+        } catch (Exception e) {
+            log.error("Error cancelling refund: {}", e.getMessage());
+            return createErrorResponse("Failed to cancel refund: " + e.getMessage());
+        }
+    }
+    
     private String generateRefundId() {
         return "REF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
@@ -247,6 +362,10 @@ public class RefundService {
             return "ISBANK";
         } else if (transactionId.startsWith("AKB")) {
             return "AKBANK";
+        } else if (transactionId.startsWith("TXN-")) {
+            // TXN- ile başlayan transaction ID'ler için default olarak Garanti kullan
+            log.info("Transaction ID {} TXN- format detected, using GARANTI as default bank", transactionId);
+            return "GARANTI";
         } else {
             return "UNKNOWN";
         }
@@ -424,12 +543,12 @@ public class RefundService {
             // Bu örnekte basit string parsing kullanıyoruz
             String[] parts = webhookData.split("\\|");
             if (parts.length >= 3) {
-                String gatewayRefundId = parts[0];
+                String refundId = parts[0];
                 String status = parts[1];
                 String message = parts[2];
                 
-                // Gateway refund ID ile refund'ı bul
-                Optional<Refund> refundOpt = refundRepository.findByGatewayRefundId(gatewayRefundId);
+                // Refund ID ile refund'ı bul
+                Optional<Refund> refundOpt = refundRepository.findByRefundId(refundId);
                 if (refundOpt.isPresent()) {
                     Refund refund = refundOpt.get();
                     
@@ -467,7 +586,7 @@ public class RefundService {
                     notifyMerchantAboutRefundStatus(refund);
                     
                 } else {
-                    log.warn("Refund not found for gateway refund ID: {}", gatewayRefundId);
+                    log.warn("Refund not found for refund ID: {}", refundId);
                 }
             } else {
                 log.error("Invalid webhook data format: {}", webhookData);
@@ -509,14 +628,23 @@ public class RefundService {
             log.info("Notifying merchant {} about refund status change for refund ID: {}", 
                     refund.getMerchantId(), refund.getRefundId());
             
-            // Bu kısım WebhookService ile entegre edilebilir
-            // Şimdilik sadece log yazıyoruz
-            String notificationMessage = String.format(
-                "Refund status updated to %s for amount %s %s. Refund ID: %s",
-                refund.getStatus(), refund.getAmount(), refund.getCurrency(), refund.getRefundId()
-            );
+            // WebhookService ile merchant'a webhook gönder (şimdilik sadece log)
+            String eventType;
+            switch (refund.getStatus()) {
+                case COMPLETED:
+                    eventType = "REFUND_COMPLETED";
+                    break;
+                case FAILED:
+                    eventType = "REFUND_FAILED";
+                    break;
+                case PROCESSING:
+                    eventType = "REFUND_CREATED";
+                    break;
+                default:
+                    eventType = "REFUND_CREATED";
+            }
             
-            log.info("Merchant notification: {}", notificationMessage);
+            log.info("Webhook would be triggered for merchant {} - Event: {} (temporarily disabled)", refund.getMerchantId(), eventType);
             
         } catch (Exception e) {
             log.error("Error notifying merchant about refund status: {}", e.getMessage());

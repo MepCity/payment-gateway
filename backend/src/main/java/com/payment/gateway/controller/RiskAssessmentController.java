@@ -16,7 +16,7 @@ import java.util.Map;
  * Fraud detection risk değerlendirme sonuçları
  */
 @RestController
-@RequestMapping("/api/v1/risk")
+@RequestMapping("/v1/risk")
 @RequiredArgsConstructor
 @Slf4j
 public class RiskAssessmentController {
