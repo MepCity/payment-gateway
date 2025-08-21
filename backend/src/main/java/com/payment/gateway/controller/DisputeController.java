@@ -4,6 +4,7 @@ import com.payment.gateway.dto.DisputeRequest;
 import com.payment.gateway.dto.DisputeResponse;
 import com.payment.gateway.model.Dispute;
 import com.payment.gateway.service.DisputeService;
+import com.payment.gateway.service.MerchantAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +22,35 @@ import java.util.Map;
 public class DisputeController {
     
     private final DisputeService disputeService;
+    private final MerchantAuthService merchantAuthService;
     
     // POST - Create new dispute
     @PostMapping
-    public ResponseEntity<DisputeResponse> createDispute(@Valid @RequestBody DisputeRequest request) {
+    public ResponseEntity<DisputeResponse> createDispute(
+            @Valid @RequestBody DisputeRequest request,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Creating new dispute for payment: {}, transaction: {}", 
                 request.getPaymentId(), request.getTransactionId());
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile dispute create denemesi");
+            DisputeResponse errorResponse = new DisputeResponse();
+            errorResponse.setSuccess(false);
+            errorResponse.setMessage("Geçersiz API key. Lütfen doğru API key kullanın.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            DisputeResponse errorResponse = new DisputeResponse();
+            errorResponse.setSuccess(false);
+            errorResponse.setMessage("Merchant bilgisi alınamadı.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        }
         
-        DisputeResponse response = disputeService.createDispute(request);
+        DisputeResponse response = disputeService.createDisputeForMerchant(request, merchantId);
         
         if (response.isSuccess()) {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -39,10 +61,24 @@ public class DisputeController {
     
     // GET - Get dispute by ID
     @GetMapping("/{id}")
-    public ResponseEntity<DisputeResponse> getDisputeById(@PathVariable Long id) {
+    public ResponseEntity<DisputeResponse> getDisputeById(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving dispute with ID: {}", id);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile dispute get denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         
-        DisputeResponse response = disputeService.getDisputeById(id);
+        DisputeResponse response = disputeService.getDisputeByIdForMerchant(id, merchantId);
         
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -51,47 +87,95 @@ public class DisputeController {
         }
     }
     
-    // GET - Get dispute by dispute ID
+    // GET - Get dispute by dispute ID (merchant-specific)
     @GetMapping("/dispute-id/{disputeId}")
-    public ResponseEntity<DisputeResponse> getDisputeByDisputeId(@PathVariable String disputeId) {
+    public ResponseEntity<DisputeResponse> getDisputeByDisputeId(
+            @PathVariable String disputeId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving dispute with dispute ID: {}", disputeId);
-        
-        DisputeResponse response = disputeService.getDisputeByDisputeId(disputeId);
-        
-        if (response.isSuccess()) {
-            return ResponseEntity.ok(response);
-        } else {
-            return ResponseEntity.notFound().build();
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile dispute by dispute ID denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        return disputeService.getDisputeForMerchantById(merchantId, disputeId)
+                .map(dispute -> ResponseEntity.ok(dispute))
+                .orElse(ResponseEntity.notFound().build());
     }
     
-    // GET - Get dispute by payment ID
+    // GET - Get dispute by payment ID (merchant-specific)
     @GetMapping("/payment/{paymentId}")
-    public ResponseEntity<DisputeResponse> getDisputeByPaymentId(@PathVariable String paymentId) {
+    public ResponseEntity<DisputeResponse> getDisputeByPaymentId(
+            @PathVariable String paymentId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving dispute with payment ID: {}", paymentId);
-        
-        DisputeResponse response = disputeService.getDisputeByPaymentId(paymentId);
-        
-        if (response.isSuccess()) {
-            return ResponseEntity.ok(response);
-        } else {
-            return ResponseEntity.notFound().build();
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile dispute by payment ID denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        return disputeService.getDisputeForMerchantByPaymentId(merchantId, paymentId)
+                .map(dispute -> ResponseEntity.ok(dispute))
+                .orElse(ResponseEntity.notFound().build());
     }
     
-    // GET - Get all disputes
+    // GET - Get all disputes for merchant
     @GetMapping
-    public ResponseEntity<List<DisputeResponse>> getAllDisputes() {
-        log.info("Retrieving all disputes");
+    public ResponseEntity<List<DisputeResponse>> getAllDisputes(
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+        log.info("Retrieving all disputes for merchant");
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile disputes list denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         
-        List<DisputeResponse> disputes = disputeService.getAllDisputes();
+        List<DisputeResponse> disputes = disputeService.getDisputesByMerchantId(merchantId);
         return ResponseEntity.ok(disputes);
     }
     
-    // GET - Get disputes by merchant ID
+    // GET - Get disputes by merchant ID (for admin use, requires merchant authentication)
     @GetMapping("/merchant/{merchantId}")
-    public ResponseEntity<List<DisputeResponse>> getDisputesByMerchantId(@PathVariable String merchantId) {
+    public ResponseEntity<List<DisputeResponse>> getDisputesByMerchantId(
+            @PathVariable String merchantId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving disputes for merchant: {}", merchantId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile merchant disputes denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant sadece kendi dispute'larını görebilir
+        String requestingMerchantId = getMerchantIdFromApiKey(apiKey);
+        if (requestingMerchantId == null || !requestingMerchantId.equals(merchantId)) {
+            log.warn("🚫 Merchant {} tried to access disputes of {}", requestingMerchantId, merchantId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         
         List<DisputeResponse> disputes = disputeService.getDisputesByMerchantId(merchantId);
         return ResponseEntity.ok(disputes);
@@ -106,21 +190,49 @@ public class DisputeController {
         return ResponseEntity.ok(disputes);
     }
     
-    // GET - Get disputes by status
+    // GET - Get disputes by status (merchant-specific)
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<DisputeResponse>> getDisputesByStatus(@PathVariable Dispute.DisputeStatus status) {
+    public ResponseEntity<List<DisputeResponse>> getDisputesByStatus(
+            @PathVariable Dispute.DisputeStatus status,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving disputes with status: {}", status);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile disputes by status denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         
-        List<DisputeResponse> disputes = disputeService.getDisputesByStatus(status);
+        List<DisputeResponse> disputes = disputeService.getDisputesForMerchantByStatus(merchantId, status);
         return ResponseEntity.ok(disputes);
     }
     
-    // GET - Get disputes by reason
+    // GET - Get disputes by reason (merchant-specific)
     @GetMapping("/reason/{reason}")
-    public ResponseEntity<List<DisputeResponse>> getDisputesByReason(@PathVariable Dispute.DisputeReason reason) {
+    public ResponseEntity<List<DisputeResponse>> getDisputesByReason(
+            @PathVariable Dispute.DisputeReason reason,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving disputes with reason: {}", reason);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile disputes by reason denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         
-        List<DisputeResponse> disputes = disputeService.getDisputesByReason(reason);
+        List<DisputeResponse> disputes = disputeService.getDisputesForMerchantByReason(merchantId, reason);
         return ResponseEntity.ok(disputes);
     }
     
@@ -228,5 +340,33 @@ public class DisputeController {
         } else {
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    /**
+     * API key'den merchant ID'yi çıkart
+     */
+    private String getMerchantIdFromApiKey(String apiKey) {
+        if (apiKey == null) {
+            return null;
+        }
+        
+        // Test mode - her test API key'ini farklı merchant'a eşle
+        if (apiKey.startsWith("pk_test_")) {
+            switch (apiKey) {
+                case "pk_test_merchant1":
+                    return "TEST_MERCHANT";
+                case "pk_test_merchant2":
+                    return "TEST_MERCHANT_2";
+                case "pk_test_merchant3":
+                    return "TEST_MERCHANT_3";
+                default:
+                    return "TEST_MERCHANT"; // Default test merchant
+            }
+        }
+        
+        // Production'da merchant'ı API key ile bulup merchant ID'yi döneriz
+        return merchantAuthService.getMerchantByApiKey(apiKey)
+                .map(merchant -> merchant.getMerchantId())
+                .orElse(null);
     }
 }

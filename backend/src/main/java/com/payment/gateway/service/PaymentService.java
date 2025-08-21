@@ -207,10 +207,48 @@ public class PaymentService {
         }
     }
     
+    /**
+     * Merchant ID ile kısıtlanmış payment arama
+     */
+    public PaymentResponse getPaymentByIdForMerchant(Long id, String merchantId) {
+        Optional<Payment> payment = paymentRepository.findById(id);
+        if (payment.isPresent()) {
+            Payment p = payment.get();
+            // Merchant ID kontrolü
+            if (!p.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}", 
+                    merchantId, id, p.getMerchantId());
+                return createErrorResponse("Payment not found or access denied");
+            }
+            return createPaymentResponse(p, "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with ID: " + id);
+        }
+    }
+    
     public PaymentResponse getPaymentByTransactionId(String transactionId) {
         Optional<Payment> payment = paymentRepository.findByTransactionId(transactionId);
         if (payment.isPresent()) {
             return createPaymentResponse(payment.get(), "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with transaction ID: " + transactionId);
+        }
+    }
+
+    /**
+     * Merchant ID ile kısıtlanmış transaction ID ile payment arama
+     */
+    public PaymentResponse getPaymentByTransactionIdForMerchant(String transactionId, String merchantId) {
+        Optional<Payment> payment = paymentRepository.findByTransactionId(transactionId);
+        if (payment.isPresent()) {
+            Payment p = payment.get();
+            // Merchant ID kontrolü
+            if (!p.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}", 
+                    merchantId, transactionId, p.getMerchantId());
+                return createErrorResponse("Payment not found or access denied");
+            }
+            return createPaymentResponse(p, "Payment retrieved successfully", true);
         } else {
             return createErrorResponse("Payment not found with transaction ID: " + transactionId);
         }
@@ -220,6 +258,25 @@ public class PaymentService {
         Optional<Payment> payment = paymentRepository.findByPaymentId(paymentId);
         if (payment.isPresent()) {
             return createPaymentResponse(payment.get(), "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with payment ID: " + paymentId);
+        }
+    }
+    
+    /**
+     * Merchant ID ile kısıtlanmış payment ID ile payment arama
+     */
+    public PaymentResponse getPaymentByPaymentIdForMerchant(String paymentId, String merchantId) {
+        Optional<Payment> payment = paymentRepository.findByPaymentId(paymentId);
+        if (payment.isPresent()) {
+            Payment p = payment.get();
+            // Merchant ID kontrolü
+            if (!p.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}", 
+                    merchantId, paymentId, p.getMerchantId());
+                return createErrorResponse("Payment not found or access denied");
+            }
+            return createPaymentResponse(p, "Payment retrieved successfully", true);
         } else {
             return createErrorResponse("Payment not found with payment ID: " + paymentId);
         }
@@ -242,6 +299,17 @@ public class PaymentService {
     public List<PaymentResponse> getPaymentsByCustomerId(String customerId) {
         List<Payment> payments = paymentRepository.findByCustomerId(customerId);
         return payments.stream()
+                .map(payment -> createPaymentResponse(payment, null, true))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Merchant ID ile kısıtlanmış customer payment arama
+     */
+    public List<PaymentResponse> getPaymentsByCustomerIdForMerchant(String customerId, String merchantId) {
+        List<Payment> payments = paymentRepository.findByCustomerId(customerId);
+        return payments.stream()
+                .filter(payment -> payment.getMerchantId().equals(merchantId)) // Sadece bu merchant'ın payment'ları
                 .map(payment -> createPaymentResponse(payment, null, true))
                 .collect(Collectors.toList());
     }

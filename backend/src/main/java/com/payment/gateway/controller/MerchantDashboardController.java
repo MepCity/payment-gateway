@@ -7,8 +7,10 @@ import com.payment.gateway.service.MerchantService;
 import com.payment.gateway.service.PaymentService;
 import com.payment.gateway.service.DisputeService;
 import com.payment.gateway.service.RefundService;
+import com.payment.gateway.service.MerchantAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,13 +35,29 @@ public class MerchantDashboardController {
     private final DisputeService disputeService;
     private final PaymentService paymentService;
     private final RefundService refundService;
+    private final MerchantAuthService merchantAuthService;
     
     /**
      * Merchant dashboard ana sayfası - Frontend için stats
      */
     @GetMapping("/{merchantId}")
-    public ResponseEntity<Map<String, Object>> getDashboard(@PathVariable String merchantId) {
+    public ResponseEntity<Map<String, Object>> getDashboard(
+            @PathVariable String merchantId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("📊 Merchant dashboard getiriliyor: {}", merchantId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile dashboard denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant sadece kendi dashboard'unu görebilir
+        String requestingMerchantId = getMerchantIdFromApiKey(apiKey);
+        if (requestingMerchantId == null || !requestingMerchantId.equals(merchantId)) {
+            log.warn("🚫 Merchant {} tried to access dashboard of {}", requestingMerchantId, merchantId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         
         try {
             // Payment istatistikleri al
@@ -209,8 +227,23 @@ public class MerchantDashboardController {
      * Merchant dispute'ları - Bekleyen cevaplar
      */
     @GetMapping("/{merchantId}/disputes")
-    public ResponseEntity<Map<String, Object>> getMerchantDisputes(@PathVariable String merchantId) {
+    public ResponseEntity<Map<String, Object>> getMerchantDisputes(
+            @PathVariable String merchantId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("⚖️ Merchant dispute'ları getiriliyor: {}", merchantId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile merchant disputes denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant sadece kendi dispute'larını görebilir
+        String requestingMerchantId = getMerchantIdFromApiKey(apiKey);
+        if (requestingMerchantId == null || !requestingMerchantId.equals(merchantId)) {
+            log.warn("🚫 Merchant {} tried to access disputes of {}", requestingMerchantId, merchantId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         
         // Merchant bilgilerini kontrol et
         MerchantResponse merchant = merchantService.getMerchantByMerchantId(merchantId)
@@ -551,5 +584,33 @@ public class MerchantDashboardController {
             log.error("❌ Dispute detayı getirilirken hata: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * API key'den merchant ID'yi çıkart
+     */
+    private String getMerchantIdFromApiKey(String apiKey) {
+        if (apiKey == null) {
+            return null;
+        }
+        
+        // Test mode - her test API key'ini farklı merchant'a eşle
+        if (apiKey.startsWith("pk_test_")) {
+            switch (apiKey) {
+                case "pk_test_merchant1":
+                    return "TEST_MERCHANT";
+                case "pk_test_merchant2":
+                    return "TEST_MERCHANT_2";
+                case "pk_test_merchant3":
+                    return "TEST_MERCHANT_3";
+                default:
+                    return "TEST_MERCHANT"; // Default test merchant
+            }
+        }
+        
+        // Production'da merchant'ı API key ile bulup merchant ID'yi döneriz
+        return merchantAuthService.getMerchantByApiKey(apiKey)
+                .map(merchant -> merchant.getMerchantId())
+                .orElse(null);
     }
 }

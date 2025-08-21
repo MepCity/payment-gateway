@@ -89,4 +89,16 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
     
     @Query("SELECT COUNT(d) FROM Dispute d WHERE d.status = 'PENDING_ADMIN_EVALUATION'")
     long countPendingAdminEvaluations();
+    
+    // Merchant-based filtering methods
+    
+    List<Dispute> findByMerchantIdAndReason(String merchantId, Dispute.DisputeReason reason);
+    
+    Optional<Dispute> findByMerchantIdAndPaymentId(String merchantId, String paymentId);
+    
+    Optional<Dispute> findByMerchantIdAndDisputeId(String merchantId, String disputeId);
+    
+    long countByMerchantId(String merchantId);
+    
+    long countByMerchantIdAndStatus(String merchantId, Dispute.DisputeStatus status);
 }

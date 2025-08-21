@@ -34,18 +34,18 @@ public class RefundService {
             // Validate payment exists and get payment details
             var paymentResponse = paymentService.getPaymentByPaymentId(request.getPaymentId());
             BigDecimal originalAmount = paymentResponse.getAmount();
-            
+
             // Get existing refunds for this payment
             List<Refund> existingRefunds = refundRepository.findByPaymentId(request.getPaymentId())
                 .stream()
                 .filter(refund -> refund.getStatus() == Refund.RefundStatus.COMPLETED)
                 .collect(Collectors.toList());
-            
+
             // Calculate total already refunded amount
             BigDecimal totalRefunded = existingRefunds.stream()
                 .map(Refund::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
+
             // Validate refund amount
             BigDecimal availableAmount = originalAmount.subtract(totalRefunded);
             if (request.getAmount().compareTo(availableAmount) > 0) {
@@ -107,11 +107,53 @@ public class RefundService {
             return createErrorResponse("Failed to create refund: " + e.getMessage());
         }
     }
+
+    /**
+     * Merchant ID ile kısıtlanmış refund oluşturma
+     */
+    public RefundResponse createRefundForMerchant(RefundRequest request, String merchantId) {
+        try {
+            // Payment'ın bu merchant'a ait olduğunu doğrula
+            var paymentResponse = paymentService.getPaymentByPaymentIdForMerchant(request.getPaymentId(), merchantId);
+            
+            if (!paymentResponse.isSuccess()) {
+                log.warn("🚫 Merchant {} tried to create refund for payment {} not owned by them", 
+                    merchantId, request.getPaymentId());
+                return createErrorResponse("Payment not found or access denied");
+            }
+
+            // Normal refund oluşturma işlemini devam ettir
+            return createRefund(request);
+            
+        } catch (Exception e) {
+            log.error("Error creating refund for merchant {}: {}", merchantId, e.getMessage(), e);
+            return createErrorResponse("Failed to create refund: " + e.getMessage());
+        }
+    }
     
     public RefundResponse getRefundById(Long id) {
         Optional<Refund> refund = refundRepository.findById(id);
         if (refund.isPresent()) {
             return createRefundResponse(refund.get(), "Refund retrieved successfully", true);
+        } else {
+            return createErrorResponse("Refund not found with ID: " + id);
+        }
+    }
+    
+    /**
+     * Merchant ID ile kısıtlanmış refund ID ile arama
+     */
+    public RefundResponse getRefundByIdForMerchant(Long id, String merchantId) {
+        Optional<Refund> refund = refundRepository.findById(id);
+        if (refund.isPresent()) {
+            Refund r = refund.get();
+            // Payment'ın merchant'ına bak (refund'da direct merchant ID yok)
+            var payment = paymentService.getPaymentByPaymentId(r.getPaymentId());
+            if (!payment.isSuccess() || !payment.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access refund {} not owned by them", merchantId, id);
+                return createErrorResponse("Refund not found or access denied");
+            }
+            return createRefundResponse(r, "Refund retrieved successfully", true);
         } else {
             return createErrorResponse("Refund not found with ID: " + id);
         }
