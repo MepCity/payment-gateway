@@ -106,8 +106,11 @@ function AppContent() {
               <DashboardLayout />
             </ProtectedRoute>
           }>
-            {/* Default route - Process Payment */}
-            <Route index element={<ProcessPaymentPage />} />
+            {/* Default route - Dashboard Overview */}
+            <Route index element={<DashboardPage />} />
+            
+            {/* Dashboard Overview */}
+            <Route path="overview" element={<DashboardPage />} />
             
             {/* Process Payment */}
             <Route path="process-payment" element={<ProcessPaymentPage />} />

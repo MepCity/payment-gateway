@@ -2,7 +2,6 @@ package com.payment.gateway.controller;
 
 import com.payment.gateway.dto.MerchantResponse;
 import com.payment.gateway.dto.DisputeResponse;
-import com.payment.gateway.model.Merchant;
 import com.payment.gateway.model.Dispute;
 import com.payment.gateway.service.MerchantService;
 import com.payment.gateway.service.PaymentService;
@@ -34,30 +33,88 @@ public class MerchantDashboardController {
     private final PaymentService paymentService;
     
     /**
-     * Merchant dashboard ana sayfası
+     * Merchant dashboard ana sayfası - Frontend için stats
      */
     @GetMapping("/{merchantId}")
     public ResponseEntity<Map<String, Object>> getDashboard(@PathVariable String merchantId) {
         log.info("📊 Merchant dashboard getiriliyor: {}", merchantId);
         
-        // Merchant bilgilerini getir
-        MerchantResponse merchant = merchantService.getMerchantByMerchantId(merchantId)
-                .orElse(null);
-        
-        if (merchant == null) {
-            return ResponseEntity.notFound().build();
+        try {
+            // Payment istatistikleri al
+            var allPayments = paymentService.getPaymentsByMerchantId(merchantId);
+            
+            // Refund istatistikleri al (örnek)
+            // var allRefunds = refundService.getRefundsByMerchantId(merchantId);
+            
+            // Dispute istatistikleri al
+            var allDisputes = disputeService.getDisputesByMerchantId(merchantId);
+            
+            // Dashboard stats hesapla
+            long totalPayments = allPayments.size();
+            double totalAmount = allPayments.stream()
+                .mapToDouble(p -> p.getAmount().doubleValue())
+                .sum();
+            
+            long completedPayments = allPayments.stream()
+                .filter(p -> "COMPLETED".equals(p.getStatus().name()))
+                .count();
+            
+            double successRate = totalPayments > 0 ? (completedPayments * 100.0 / totalPayments) : 0;
+            
+            long pendingPayments = allPayments.stream()
+                .filter(p -> "PENDING".equals(p.getStatus().name()) || "PROCESSING".equals(p.getStatus().name()))
+                .count();
+            
+            // Unique customers
+            long totalCustomers = allPayments.stream()
+                .map(p -> p.getCustomerId())
+                .distinct()
+                .count();
+            
+            // Dispute stats
+            long totalDisputes = allDisputes.size();
+            long pendingDisputes = allDisputes.stream()
+                .filter(d -> "PENDING_MERCHANT_RESPONSE".equals(d.getStatus().name()))
+                .count();
+            
+            double disputeRate = totalPayments > 0 ? (totalDisputes * 100.0 / totalPayments) : 0;
+            
+            // Dashboard verilerini hazırla
+            Map<String, Object> stats = new java.util.HashMap<>();
+            stats.put("totalPayments", totalPayments);
+            stats.put("totalAmount", totalAmount);
+            stats.put("successRate", successRate);
+            stats.put("pendingPayments", pendingPayments);
+            stats.put("totalRefunds", 0); // TODO: implement refund service
+            stats.put("refundAmount", 0.0);
+            stats.put("totalCustomers", totalCustomers);
+            stats.put("totalDisputes", totalDisputes);
+            stats.put("pendingDisputes", pendingDisputes);
+            stats.put("disputeRate", disputeRate);
+            
+            log.info("✅ Dashboard stats calculated for {}: {} payments, {} disputes", 
+                merchantId, totalPayments, totalDisputes);
+            
+            return ResponseEntity.ok(stats);
+            
+        } catch (Exception e) {
+            log.error("❌ Error getting dashboard stats for merchant: {}", merchantId, e);
+            
+            // Fallback empty stats
+            Map<String, Object> emptyStats = new java.util.HashMap<>();
+            emptyStats.put("totalPayments", 0);
+            emptyStats.put("totalAmount", 0.0);
+            emptyStats.put("successRate", 0.0);
+            emptyStats.put("pendingPayments", 0);
+            emptyStats.put("totalRefunds", 0);
+            emptyStats.put("refundAmount", 0.0);
+            emptyStats.put("totalCustomers", 0);
+            emptyStats.put("totalDisputes", 0);
+            emptyStats.put("pendingDisputes", 0);
+            emptyStats.put("disputeRate", 0.0);
+            
+            return ResponseEntity.ok(emptyStats);
         }
-        
-        // Dashboard verilerini hazırla
-        Map<String, Object> dashboard = new java.util.HashMap<>();
-        dashboard.put("merchant", merchant);
-        dashboard.put("status", merchant.getStatus());
-        dashboard.put("createdAt", merchant.getCreatedAt());
-        
-        // Burada payment istatistikleri, son işlemler vb. eklenebilir
-        // Örnek olarak basit veriler ekliyorum
-        
-        return ResponseEntity.ok(dashboard);
     }
     
     /**

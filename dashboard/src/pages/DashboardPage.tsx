@@ -146,14 +146,21 @@ const DashboardPage: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               Latest payment transactions and their status
             </Typography>
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="body2">
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'action.hover', 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <Typography variant="body2" color="text.primary">
                 • {stats.totalPayments} total payments processed
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • ${stats.totalAmount.toLocaleString()} total volume
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • {stats.pendingPayments} payments pending
               </Typography>
             </Box>
@@ -170,14 +177,21 @@ const DashboardPage: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               Refund requests and processing status
             </Typography>
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="body2">
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'action.hover', 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <Typography variant="body2" color="text.primary">
                 • {stats.totalRefunds} total refunds issued
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • ${stats.refundAmount.toLocaleString()} refunded amount
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • Processing time: avg 2-3 business days
               </Typography>
             </Box>
@@ -194,14 +208,21 @@ const DashboardPage: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               Customer base and engagement metrics
             </Typography>
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="body2">
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'action.hover', 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <Typography variant="body2" color="text.primary">
                 • {stats.totalCustomers} active customers
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • Growing customer base
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • High customer satisfaction rate
               </Typography>
             </Box>
@@ -218,14 +239,21 @@ const DashboardPage: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               Dispute tracking and resolution status
             </Typography>
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="body2">
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'action.hover', 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <Typography variant="body2" color="text.primary">
                 • {stats.totalDisputes} total disputes received
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • {stats.pendingDisputes} disputes pending review
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" color="text.primary">
                 • {stats.disputeRate.toFixed(2)}% dispute rate
               </Typography>
             </Box>

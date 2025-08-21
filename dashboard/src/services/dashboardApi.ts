@@ -74,8 +74,8 @@ export const dashboardAPI = {
   // Get comprehensive dashboard statistics
   getDashboardStats: async (): Promise<{ data: any }> => {
     try {
-      // Backend'den dashboard statistics'i çek
-      const response = await dashboardApiClient.get('/api/merchant/dashboard');
+      // Backend'den dashboard statistics'i çek - doğru endpoint
+      const response = await dashboardApiClient.get('/v1/merchant-dashboard/TEST_MERCHANT');
       return { data: response.data };
     } catch (error) {
       console.error('Get dashboard stats error:', error);
