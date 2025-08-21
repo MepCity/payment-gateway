@@ -280,6 +280,23 @@ public class MerchantService {
     }
     
     /**
+     * Merchant'ın webhook URL'ini getir
+     */
+    public String getMerchantWebhookUrl(String merchantId) {
+        try {
+            Optional<Merchant> merchant = merchantRepository.findByMerchantId(merchantId);
+            if (merchant.isPresent()) {
+                return merchant.get().getWebhookUrl();
+            }
+            log.warn("Merchant not found for merchant ID: {}", merchantId);
+            return null;
+        } catch (Exception e) {
+            log.error("Error getting merchant webhook URL for merchant ID: {}", merchantId, e);
+            return null;
+        }
+    }
+    
+    /**
      * Secret key oluştur
      */
     private String generateSecretKey() {

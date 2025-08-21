@@ -36,8 +36,7 @@ public class DisputeService {
     private final DisputeRepository disputeRepository;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
-    private final WebhookService webhookService;
-    
+
     public DisputeResponse createDispute(DisputeRequest request) {
         try {
             // Generate unique dispute ID
