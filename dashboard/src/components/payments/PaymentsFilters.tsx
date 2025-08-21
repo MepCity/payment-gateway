@@ -283,7 +283,7 @@ const PaymentsFilters: React.FC<PaymentsFiltersProps> = ({
             
             {filters.dateRange && (
               <Chip
-                label={`Date: ${filters.dateRange?.startDate || ''} - ${filters.dateRange?.endDate || ''}`}
+                label={`Date: ${filters.dateRange.startDate || ''} - ${filters.dateRange.endDate || ''}`}
                 onDelete={() => onFiltersChange({ ...filters, dateRange: undefined })}
                 size="small"
                 variant="outlined"

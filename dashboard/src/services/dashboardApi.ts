@@ -1,5 +1,24 @@
 import axios from 'axios';
-import { PaymentListItem, PaymentDetail, PaymentStats, DashboardFilters, PaginationInfo } from '../types/dashboard';
+import { 
+  PaymentListItem, 
+  PaymentDetail, 
+  PaymentStats, 
+  DashboardFilters,
+  RefundFilters, 
+  PaginationInfo,
+  RefundListItem,
+  RefundDetail,
+  RefundStats,
+  RefundStatus,
+  RefundReason,
+  DisputeStats,
+  DisputeListItem,
+  DisputeDetail,
+  DisputeFilters,
+  DisputeResponse,
+  DisputeStatus,
+  DisputeReason
+} from '../types/dashboard';
 
 const API_BASE_URL = 'http://localhost:8080';
 
@@ -15,7 +34,7 @@ const dashboardApiClient = axios.create({
 dashboardApiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   const apiKey = localStorage.getItem('auth_api_key');
-      
+  
   console.log('Dashboard API - Token:', token ? 'Present' : 'Missing');
   console.log('Dashboard API - API Key:', apiKey ? 'Present' : 'Missing');
   
@@ -52,6 +71,42 @@ export interface PaymentListResponse {
 }
 
 export const dashboardAPI = {
+  // Get comprehensive dashboard statistics
+  getDashboardStats: async (): Promise<{ data: any }> => {
+    try {
+      // Backend'den dashboard statistics'i çek - doğru endpoint
+      const response = await dashboardApiClient.get('/v1/merchant-dashboard/TEST_MERCHANT');
+      return { data: response.data };
+    } catch (error) {
+      console.error('Get dashboard stats error:', error);
+      // Fallback olarak manual calculation
+      const [payments, refunds] = await Promise.all([
+        dashboardApiClient.get('/v1/payments').catch(() => ({ data: [] })),
+        dashboardApiClient.get('/v1/refunds').catch(() => ({ data: [] }))
+      ]);
+      
+      const paymentsData = payments.data || [];
+      const refundsData = refunds.data || [];
+      
+      const stats = {
+        totalPayments: paymentsData.length,
+        totalAmount: paymentsData.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
+        successRate: paymentsData.length > 0 ? 
+          (paymentsData.filter((p: any) => p.status === 'COMPLETED').length / paymentsData.length) * 100 : 0,
+        pendingPayments: paymentsData.filter((p: any) => 
+          p.status === 'PENDING' || p.status === 'PROCESSING').length,
+        totalRefunds: refundsData.length,
+        refundAmount: refundsData.reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
+        totalCustomers: new Set(paymentsData.map((p: any) => p.customerId)).size,
+        totalDisputes: 12, // Mock data
+        pendingDisputes: 3, // Mock data
+        disputeRate: paymentsData.length > 0 ? (12 / paymentsData.length) * 100 : 0
+      };
+      
+      return { data: stats };
+    }
+  },
+
   // Get payment statistics
   getPaymentStats: async (merchantId: string): Promise<PaymentStats> => {
     try {
@@ -179,6 +234,7 @@ export const dashboardAPI = {
         })),
         pagination: {
           page,
+          currentPage: page,
           pageSize,
           totalCount,
           totalPages: Math.ceil(totalCount / pageSize),
@@ -192,6 +248,7 @@ export const dashboardAPI = {
         payments: [],
         pagination: {
           page,
+          currentPage: page,
           pageSize,
           totalCount: 0,
           totalPages: 0,
@@ -208,7 +265,7 @@ export const dashboardAPI = {
       // Try to get by payment ID first, then by transaction ID
       let response;
       try {
-        response = await dashboardApiClient.get(`/v1/payments/${paymentId}`);
+        response = await dashboardApiClient.get(`/v1/payments/payment/${paymentId}`);
       } catch (error: any) {
         if (error.response?.status === 404) {
           // Try with transaction ID
@@ -219,6 +276,14 @@ export const dashboardAPI = {
       }
       
       const payment = response.data;
+      
+      // Convert date arrays to ISO strings if needed
+      const convertDate = (dateField: any) => {
+        if (Array.isArray(dateField)) {
+          return new Date(dateField[0], dateField[1] - 1, dateField[2], dateField[3], dateField[4], dateField[5]).toISOString();
+        }
+        return dateField;
+      };
       
       // Convert backend response to frontend format
       return {
@@ -239,15 +304,15 @@ export const dashboardAPI = {
         description: payment.description || '',
         gatewayResponse: payment.gatewayResponse || payment.gateway_response,
         gatewayTransactionId: payment.gatewayTransactionId || payment.gateway_transaction_id,
-        createdAt: payment.createdAt || payment.created_at,
-        updatedAt: payment.updatedAt || payment.updated_at,
-        completedAt: payment.completedAt || payment.completed_at,
+        createdAt: convertDate(payment.createdAt) || convertDate(payment.created_at),
+        updatedAt: convertDate(payment.updatedAt) || convertDate(payment.updated_at),
+        completedAt: convertDate(payment.completedAt) || convertDate(payment.completed_at),
         // Mock events and logs for now
         events: [
           {
             id: '1',
             eventType: 'PAYMENT_INITIATED',
-            timestamp: payment.createdAt,
+            timestamp: convertDate(payment.createdAt),
             status: 'INFO' as const,
             message: 'Payment request received',
             details: { amount: payment.amount, currency: payment.currency }
@@ -255,7 +320,7 @@ export const dashboardAPI = {
           {
             id: '2',
             eventType: 'PAYMENT_PROCESSING',
-            timestamp: payment.updatedAt,
+            timestamp: convertDate(payment.updatedAt),
             status: payment.status === 'COMPLETED' ? 'SUCCESS' as const : payment.status === 'FAILED' ? 'FAILED' as const : 'INFO' as const,
             message: `Payment ${payment.status.toLowerCase()}`,
             details: { gateway: payment.gatewayTransactionId }
@@ -265,7 +330,7 @@ export const dashboardAPI = {
           {
             id: '1',
             level: 'INFO' as const,
-            timestamp: payment.createdAt,
+            timestamp: convertDate(payment.createdAt),
             message: `POST /v1/payments - Payment created`,
             source: 'API' as const,
             latency: 150,
@@ -274,7 +339,7 @@ export const dashboardAPI = {
           {
             id: '2',
             level: payment.status === 'FAILED' ? 'ERROR' as const : 'INFO' as const,
-            timestamp: payment.updatedAt,
+            timestamp: convertDate(payment.updatedAt),
             message: `Payment ${payment.status} - ${payment.gatewayResponse || 'No response'}`,
             source: 'GATEWAY' as const,
             latency: 200,
@@ -332,5 +397,353 @@ export const dashboardAPI = {
   syncPaymentStatus: async (paymentId: string) => {
     const response = await dashboardApiClient.post(`/v1/payments/${paymentId}/sync`);
     return response.data;
+  },
+
+  // ===== REFUND API METHODS =====
+
+  // Get refund statistics
+  getRefundStats: async (merchantId: string): Promise<RefundStats> => {
+    try {
+      // For test mode, get all refunds regardless of merchant ID
+      const response = await dashboardApiClient.get(`/v1/refunds`);
+      const refunds = response.data;
+      
+      // Calculate stats from refunds
+      const stats = {
+        totalRefunds: refunds.length,
+        completedRefunds: refunds.filter((r: any) => r.status === 'COMPLETED').length,
+        pendingRefunds: refunds.filter((r: any) => r.status === 'PENDING' || r.status === 'PROCESSING').length,
+        failedRefunds: refunds.filter((r: any) => r.status === 'FAILED').length,
+        totalRefundAmount: refunds.reduce((sum: number, r: any) => sum + r.amount, 0),
+        refundRate: refunds.length > 0 ? (refunds.filter((r: any) => r.status === 'COMPLETED').length / refunds.length) * 100 : 0,
+        averageRefundAmount: refunds.length > 0 ? refunds.reduce((sum: number, r: any) => sum + r.amount, 0) / refunds.length : 0,
+      };
+      
+      return stats;
+    } catch (error) {
+      console.error('Get refund stats error:', error);
+      // Return default stats on error
+      return {
+        totalRefunds: 0,
+        completedRefunds: 0,
+        pendingRefunds: 0,
+        failedRefunds: 0,
+        totalRefundAmount: 0,
+        refundRate: 0,
+        averageRefundAmount: 0,
+      };
+    }
+  },
+
+  // Get refunds list with filters and pagination
+  getRefunds: async (
+    merchantId: string, 
+    filters?: RefundFilters,
+    page: number = 1,
+    pageSize: number = 25
+  ): Promise<{ refunds: RefundListItem[]; pagination: PaginationInfo; stats?: RefundStats }> => {
+    try {
+      // For test mode, get all refunds regardless of merchant ID
+      console.log('Fetching refunds from backend...');
+      const response = await dashboardApiClient.get(`/v1/refunds`);
+      let refunds = response.data;
+      console.log('Backend refunds response:', refunds);
+
+      // Convert date arrays to ISO strings if needed
+      refunds = refunds.map((r: any) => ({
+        ...r,
+        refundDate: Array.isArray(r.refundDate) ? 
+          new Date(r.refundDate[0], r.refundDate[1] - 1, r.refundDate[2], r.refundDate[3], r.refundDate[4], r.refundDate[5]).toISOString() : 
+          r.refundDate,
+        createdAt: Array.isArray(r.createdAt) ? 
+          new Date(r.createdAt[0], r.createdAt[1] - 1, r.createdAt[2], r.createdAt[3], r.createdAt[4], r.createdAt[5]).toISOString() : 
+          r.createdAt,
+        updatedAt: Array.isArray(r.updatedAt) ? 
+          new Date(r.updatedAt[0], r.updatedAt[1] - 1, r.updatedAt[2], r.updatedAt[3], r.updatedAt[4], r.updatedAt[5]).toISOString() : 
+          r.updatedAt,
+      }));
+
+      // Apply filters
+      if (filters?.search) {
+        const searchTerm = filters.search.toLowerCase();
+        refunds = refunds.filter((r: any) => 
+          r.refundId?.toLowerCase().includes(searchTerm) ||
+          r.paymentId?.toLowerCase().includes(searchTerm) ||
+          r.transactionId?.toLowerCase().includes(searchTerm) ||
+          r.customerId?.toLowerCase().includes(searchTerm) ||
+          r.description?.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      if (filters?.status) {
+        refunds = refunds.filter((r: any) => r.status === filters.status);
+      }
+
+      if (filters?.dateFrom) {
+        refunds = refunds.filter((r: any) => new Date(r.createdAt) >= new Date(filters.dateFrom!));
+      }
+
+      if (filters?.dateTo) {
+        refunds = refunds.filter((r: any) => new Date(r.createdAt) <= new Date(filters.dateTo!));
+      }
+
+      // Sort by creation date (newest first)
+      refunds.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // Apply pagination
+      const totalCount = refunds.length;
+      const startIndex = (page - 1) * pageSize;
+      const paginatedRefunds = refunds.slice(startIndex, startIndex + pageSize);
+
+      return {
+        refunds: paginatedRefunds.map((r: any) => ({
+          id: r.id,
+          refundId: r.refundId || r.refund_id,
+          paymentId: r.paymentId || r.payment_id,
+          transactionId: r.transactionId || r.transaction_id,
+          merchantId: r.merchantId || r.merchant_id,
+          customerId: r.customerId || r.customer_id,
+          amount: r.amount,
+          currency: r.currency,
+          status: r.status,
+          reason: r.reason,
+          description: r.description || '',
+          gatewayResponse: r.gatewayResponse || r.gateway_response,
+          gatewayRefundId: r.gatewayRefundId || r.gateway_refund_id,
+          refundDate: r.refundDate || r.refund_date,
+          createdAt: r.createdAt || r.created_at,
+          updatedAt: r.updatedAt || r.updated_at,
+        })),
+        pagination: {
+          page,
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / pageSize),
+          totalCount,
+          pageSize,
+          hasNext: page < Math.ceil(totalCount / pageSize),
+          hasPrev: page > 1,
+        }
+      };
+    } catch (error) {
+      console.error('Get refunds error:', error);
+      throw error;
+    }
+  },
+
+  // Get refund detail with events and logs
+  getRefundDetail: async (refundId: string): Promise<RefundDetail> => {
+    try {
+      // Try to get by refund ID first
+      let response;
+      try {
+        response = await dashboardApiClient.get(`/v1/refunds/refund-id/${refundId}`);
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          // Try with payment ID or transaction ID as fallback
+          throw new Error(`Refund not found: ${refundId}`);
+        } else {
+          throw error;
+        }
+      }
+      
+      const refund = response.data;
+      
+      // Convert date arrays to ISO strings if needed
+      const convertDate = (dateField: any) => {
+        if (Array.isArray(dateField)) {
+          return new Date(dateField[0], dateField[1] - 1, dateField[2], dateField[3], dateField[4], dateField[5]).toISOString();
+        }
+        return dateField;
+      };
+      
+      // Convert backend response to frontend format
+      return {
+        id: refund.id,
+        refundId: refund.refundId || refund.refund_id,
+        paymentId: refund.paymentId || refund.payment_id,
+        transactionId: refund.transactionId || refund.transaction_id,
+        merchantId: refund.merchantId || refund.merchant_id,
+        customerId: refund.customerId || refund.customer_id,
+        amount: refund.amount,
+        currency: refund.currency,
+        status: refund.status,
+        reason: refund.reason,
+        description: refund.description || '',
+        gatewayResponse: refund.gatewayResponse || refund.gateway_response,
+        gatewayRefundId: refund.gatewayRefundId || refund.gateway_refund_id,
+        refundDate: convertDate(refund.refundDate) || convertDate(refund.refund_date),
+        createdAt: convertDate(refund.createdAt) || convertDate(refund.created_at),
+        updatedAt: convertDate(refund.updatedAt) || convertDate(refund.updated_at),
+        // Mock events and logs for now
+        events: [
+          {
+            id: '1',
+            eventType: 'REFUND_INITIATED',
+            timestamp: convertDate(refund.createdAt),
+            status: 'INFO' as const,
+            message: 'Refund request received',
+            details: { amount: refund.amount, currency: refund.currency }
+          },
+          {
+            id: '2',
+            eventType: 'REFUND_PROCESSING',
+            timestamp: convertDate(refund.updatedAt),
+            status: refund.status === 'COMPLETED' ? 'SUCCESS' as const : refund.status === 'FAILED' ? 'FAILED' as const : 'INFO' as const,
+            message: `Refund ${refund.status.toLowerCase()}`,
+            details: { gateway: refund.gatewayRefundId }
+          }
+        ],
+        logs: [
+          {
+            id: '1',
+            level: 'INFO' as const,
+            timestamp: convertDate(refund.createdAt),
+            message: `POST /v1/refunds - Refund created`,
+            source: 'API' as const,
+            latency: 150,
+            urlPath: '/v1/refunds'
+          },
+          {
+            id: '2',
+            level: refund.status === 'FAILED' ? 'ERROR' as const : 'INFO' as const,
+            timestamp: convertDate(refund.updatedAt),
+            message: `Refund ${refund.status} - ${refund.gatewayResponse || 'No response'}`,
+            source: 'GATEWAY' as const,
+            latency: 200,
+            urlPath: '/gateway/refund'
+          }
+        ]
+      };
+    } catch (error) {
+      console.error('Get refund detail error:', error);
+      throw error;
+    }
+  },
+
+  // Create new refund
+  createRefund: async (refundData: {
+    paymentId: string;
+    transactionId: string;
+    merchantId: string;
+    customerId: string;
+    amount: number;
+    currency: string;
+    reason: RefundReason;
+    description?: string;
+  }) => {
+    try {
+      const response = await dashboardApiClient.post('/v1/refunds', refundData);
+      return response.data;
+    } catch (error) {
+      console.error('Create refund error:', error);
+      throw error;
+    }
+  },
+
+  // Dispute operations
+  getDisputeStats: async (merchantId: string = 'TEST_MERCHANT'): Promise<DisputeStats> => {
+    try {
+      console.log('📊 Fetching dispute stats for merchant:', merchantId);
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes`);
+      console.log('✅ Dispute stats response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Get dispute stats error:', error);
+      throw error;
+    }
+  },
+
+  getDisputes: async (
+    merchantId: string = 'TEST_MERCHANT',
+    page: number = 0,
+    size: number = 20,
+    filters?: DisputeFilters
+  ): Promise<{ disputes: DisputeListItem[]; pagination: PaginationInfo }> => {
+    try {
+      console.log('📄 Fetching disputes - page:', page, 'size:', size, 'filters:', filters);
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+      });
+
+      if (filters?.status?.length) {
+        filters.status.forEach(s => params.append('status', s));
+      }
+      if (filters?.reason?.length) {
+        filters.reason.forEach(r => params.append('reason', r));
+      }
+      if (filters?.dateFrom) {
+        params.append('dateFrom', filters.dateFrom);
+      }
+      if (filters?.dateTo) {
+        params.append('dateTo', filters.dateTo);
+      }
+      if (filters?.minAmount !== undefined) {
+        params.append('minAmount', filters.minAmount.toString());
+      }
+      if (filters?.maxAmount !== undefined) {
+        params.append('maxAmount', filters.maxAmount.toString());
+      }
+      if (filters?.search) {
+        params.append('search', filters.search);
+      }
+
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/list?${params}`);
+      console.log('✅ Disputes response:', response.data);
+
+      return {
+        disputes: response.data.content || [],
+        pagination: {
+          page: response.data.page || 0,
+          totalPages: response.data.totalPages || 0,
+          totalCount: response.data.totalElements || 0,
+          pageSize: response.data.size || 20,
+          hasNext: !response.data.last,
+          hasPrev: !response.data.first,
+        }
+      };
+    } catch (error) {
+      console.error('Get disputes error:', error);
+      throw error;
+    }
+  },
+
+  getDisputeDetail: async (
+    merchantId: string = 'TEST_MERCHANT',
+    disputeId: string
+  ): Promise<DisputeDetail> => {
+    try {
+      console.log('🔍 Fetching dispute detail:', disputeId);
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/${disputeId}`);
+      console.log('✅ Dispute detail response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Get dispute detail error:', error);
+      throw error;
+    }
+  },
+
+  respondToDispute: async (
+    merchantId: string = 'TEST_MERCHANT',
+    disputeId: string,
+    disputeResponse: DisputeResponse
+  ): Promise<{ success: boolean; message: string; nextStep?: string }> => {
+    try {
+      console.log('📝 Responding to dispute:', disputeId, 'type:', disputeResponse.responseType);
+      const response = await dashboardApiClient.post(
+        `/v1/merchant-dashboard/${merchantId}/disputes/${disputeId}/respond`,
+        disputeResponse
+      );
+      console.log('✅ Dispute response submitted:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Respond to dispute error:', error);
+      throw error;
+    }
   }
 };
+
+// Export both for compatibility
+export const dashboardApi = dashboardAPI;
+export default dashboardAPI;

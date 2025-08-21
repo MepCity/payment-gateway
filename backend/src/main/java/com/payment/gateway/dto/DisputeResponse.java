@@ -27,10 +27,23 @@ public class DisputeResponse {
     private String evidence;
     private String gatewayResponse;
     private String gatewayDisputeId;
+    
     private LocalDateTime disputeDate;
+    
     private LocalDateTime resolutionDate;
+    
     private LocalDateTime createdAt;
+    
     private LocalDateTime updatedAt;
     private String message;
     private boolean success;
+    
+    // Bank dispute için ek alanlar
+    private String bankDisputeId;
+    
+    private LocalDateTime merchantResponseDeadline;
+    
+    private LocalDateTime adminEvaluationDeadline;
+    private String merchantResponse;
+    private String adminNotes;
 }

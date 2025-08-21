@@ -8,9 +8,9 @@ import {
   TableRow,
   Paper,
   Typography,
-  IconButton,
-  Chip,
   Box,
+  Chip,
+  IconButton,
   Tooltip,
 } from '@mui/material';
 import {

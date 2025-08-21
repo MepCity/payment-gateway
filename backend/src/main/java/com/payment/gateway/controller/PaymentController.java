@@ -190,17 +190,7 @@ public class PaymentController {
     // 3D Secure Success Callback
     @PostMapping("/3d-callback/success")
     public ResponseEntity<String> handle3DSecureSuccess(@RequestParam Map<String, String> params) {
-        log.info("3D Secure success callback re
-    
-    /**
-     * Kart numarasını maskele
-     */
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 8) {
-            return "****";
-        }
-        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
-    }ceived with params: {}", params);
+        log.info("3D Secure success callback received with params: {}", params);
 
         try {
             String orderId = params.get("orderId");
@@ -413,5 +403,15 @@ public class PaymentController {
         // Fallback to remote address
         String remoteAddr = request.getRemoteAddr();
         return remoteAddr != null ? remoteAddr : "unknown";
+    }
+
+    /**
+     * Kart numarasını maskele
+     */
+    private String maskCardNumber(String cardNumber) {
+        if (cardNumber == null || cardNumber.length() < 8) {
+            return "****";
+        }
+        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
     }
 }
