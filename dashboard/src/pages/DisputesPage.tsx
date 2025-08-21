@@ -38,10 +38,10 @@ import {
 } from '../types/dashboard';
 
 interface DisputesPageProps {
-  merchantId?: string;
+  // No props needed, merchant ID will be fetched from localStorage
 }
 
-const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) => {
+const DisputesPage: React.FC<DisputesPageProps> = () => {
   const navigate = useNavigate();
   
   // States
@@ -61,7 +61,7 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
   // Load data
   const loadStats = async () => {
     try {
-      const statsData = await dashboardAPI.getDisputeStats(merchantId);
+      const statsData = await dashboardAPI.getDisputeStats();
       setStats(statsData);
     } catch (err) {
       console.error('Error loading dispute stats:', err);
@@ -73,7 +73,7 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
     try {
       setLoading(true);
       const { disputes: disputeData, pagination: paginationData } = await dashboardAPI.getDisputes(
-        merchantId,
+        undefined, // merchant ID dashboardAPI içinde alınacak
         page,
         pagination.pageSize
       );
@@ -91,7 +91,7 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
   useEffect(() => {
     loadStats();
     loadDisputes();
-  }, [merchantId]);
+  }, []); // merchantId dependency kaldırıldı
 
   // Handlers
   const handlePageChange = (event: unknown, newPage: number) => {

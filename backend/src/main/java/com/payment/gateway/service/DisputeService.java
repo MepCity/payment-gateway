@@ -87,11 +87,52 @@ public class DisputeService {
             return createErrorResponse("Failed to create dispute: " + e.getMessage());
         }
     }
+
+    /**
+     * Merchant ID ile kısıtlanmış dispute oluşturma
+     */
+    public DisputeResponse createDisputeForMerchant(DisputeRequest request, String merchantId) {
+        try {
+            // Payment'ın bu merchant'a ait olduğunu doğrula
+            // (Bu durumda request.getMerchantId() ile merchantId eşit olmalı)
+            if (!request.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to create dispute for payment owned by {}", 
+                    merchantId, request.getMerchantId());
+                return createErrorResponse("You can only create disputes for your own payments");
+            }
+
+            // Normal dispute oluşturma işlemini devam ettir
+            return createDispute(request);
+            
+        } catch (Exception e) {
+            log.error("Error creating dispute for merchant {}: {}", merchantId, e.getMessage(), e);
+            return createErrorResponse("Failed to create dispute: " + e.getMessage());
+        }
+    }
     
     public DisputeResponse getDisputeById(Long id) {
         Optional<Dispute> dispute = disputeRepository.findById(id);
         if (dispute.isPresent()) {
             return createDisputeResponse(dispute.get(), "Dispute retrieved successfully", true);
+        } else {
+            return createErrorResponse("Dispute not found with ID: " + id);
+        }
+    }
+
+    /**
+     * Merchant ID ile kısıtlanmış dispute ID ile arama
+     */
+    public DisputeResponse getDisputeByIdForMerchant(Long id, String merchantId) {
+        Optional<Dispute> dispute = disputeRepository.findById(id);
+        if (dispute.isPresent()) {
+            Dispute d = dispute.get();
+            // Merchant ID kontrolü
+            if (!d.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access dispute {} owned by {}", 
+                    merchantId, id, d.getMerchantId());
+                return createErrorResponse("Dispute not found or access denied");
+            }
+            return createDisputeResponse(d, "Dispute retrieved successfully", true);
         } else {
             return createErrorResponse("Dispute not found with ID: " + id);
         }
@@ -1010,5 +1051,67 @@ public class DisputeService {
             default:
                 return Dispute.DisputeReason.GENERAL;
         }
+    }
+
+    // Merchant-based filtering methods
+    
+    /**
+     * Merchant'a ait tüm dispute'ları getir
+     */
+    public List<DisputeResponse> getDisputesForMerchant(String merchantId) {
+        List<Dispute> disputes = disputeRepository.findByMerchantId(merchantId);
+        return disputes.stream()
+                .map(dispute -> createDisputeResponse(dispute, null, true))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Merchant'a ait belirli status'taki dispute'ları getir
+     */
+    public List<DisputeResponse> getDisputesForMerchantByStatus(String merchantId, Dispute.DisputeStatus status) {
+        List<Dispute> disputes = disputeRepository.findByMerchantIdAndStatus(merchantId, status);
+        return disputes.stream()
+                .map(dispute -> createDisputeResponse(dispute, null, true))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Merchant'a ait belirli reason'daki dispute'ları getir
+     */
+    public List<DisputeResponse> getDisputesForMerchantByReason(String merchantId, Dispute.DisputeReason reason) {
+        List<Dispute> disputes = disputeRepository.findByMerchantIdAndReason(merchantId, reason);
+        return disputes.stream()
+                .map(dispute -> createDisputeResponse(dispute, null, true))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Merchant'a ait belirli payment ID'deki dispute'u getir
+     */
+    public Optional<DisputeResponse> getDisputeForMerchantByPaymentId(String merchantId, String paymentId) {
+        Optional<Dispute> dispute = disputeRepository.findByMerchantIdAndPaymentId(merchantId, paymentId);
+        return dispute.map(d -> createDisputeResponse(d, "Dispute retrieved successfully", true));
+    }
+    
+    /**
+     * Merchant'a ait belirli dispute ID'deki dispute'u getir
+     */
+    public Optional<DisputeResponse> getDisputeForMerchantById(String merchantId, String disputeId) {
+        Optional<Dispute> dispute = disputeRepository.findByMerchantIdAndDisputeId(merchantId, disputeId);
+        return dispute.map(d -> createDisputeResponse(d, "Dispute retrieved successfully", true));
+    }
+    
+    /**
+     * Merchant'a ait dispute'ların sayısını getir
+     */
+    public long getDisputeCountForMerchant(String merchantId) {
+        return disputeRepository.countByMerchantId(merchantId);
+    }
+    
+    /**
+     * Merchant'a ait belirli status'taki dispute'ların sayısını getir
+     */
+    public long getDisputeCountForMerchantByStatus(String merchantId, Dispute.DisputeStatus status) {
+        return disputeRepository.countByMerchantIdAndStatus(merchantId, status);
     }
 }

@@ -49,6 +49,21 @@ dashboardApiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Utility function to get current merchant ID from localStorage
+const getCurrentMerchantId = (): string => {
+  try {
+    const userStr = localStorage.getItem('auth_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.merchantId || 'TEST_MERCHANT';
+    }
+    return 'TEST_MERCHANT';
+  } catch (error) {
+    console.error('Error getting merchant ID:', error);
+    return 'TEST_MERCHANT';
+  }
+};
+
 // Response interceptor for error handling
 dashboardApiClient.interceptors.response.use(
   (response) => response,
@@ -74,8 +89,12 @@ export const dashboardAPI = {
   // Get comprehensive dashboard statistics
   getDashboardStats: async (): Promise<{ data: any }> => {
     try {
+      // Current merchant ID'yi al
+      const merchantId = getCurrentMerchantId();
+      console.log('📊 Getting dashboard stats for merchant:', merchantId);
+      
       // Backend'den dashboard statistics'i çek - doğru endpoint
-      const response = await dashboardApiClient.get('/v1/merchant-dashboard/TEST_MERCHANT');
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}`);
       return { data: response.data };
     } catch (error) {
       console.error('Get dashboard stats error:', error);
@@ -641,10 +660,12 @@ export const dashboardAPI = {
   },
 
   // Dispute operations
-  getDisputeStats: async (merchantId: string = 'TEST_MERCHANT'): Promise<DisputeStats> => {
+  getDisputeStats: async (merchantId?: string): Promise<DisputeStats> => {
     try {
-      console.log('📊 Fetching dispute stats for merchant:', merchantId);
-      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes`);
+      // Merchant ID belirtilmemişse current merchant'ı kullan
+      const targetMerchantId = merchantId || getCurrentMerchantId();
+      console.log('📊 Fetching dispute stats for merchant:', targetMerchantId);
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${targetMerchantId}/disputes`);
       console.log('✅ Dispute stats response:', response.data);
       return response.data;
     } catch (error) {
@@ -654,13 +675,15 @@ export const dashboardAPI = {
   },
 
   getDisputes: async (
-    merchantId: string = 'TEST_MERCHANT',
+    merchantId?: string,
     page: number = 0,
     size: number = 20,
     filters?: DisputeFilters
   ): Promise<{ disputes: DisputeListItem[]; pagination: PaginationInfo }> => {
     try {
-      console.log('📄 Fetching disputes - page:', page, 'size:', size, 'filters:', filters);
+      // Merchant ID belirtilmemişse current merchant'ı kullan
+      const targetMerchantId = merchantId || getCurrentMerchantId();
+      console.log('📄 Fetching disputes for merchant:', targetMerchantId, '- page:', page, 'size:', size, 'filters:', filters);
       
       const params = new URLSearchParams({
         page: page.toString(),
@@ -689,7 +712,7 @@ export const dashboardAPI = {
         params.append('search', filters.search);
       }
 
-      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/list?${params}`);
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${targetMerchantId}/disputes/list?${params}`);
       console.log('✅ Disputes response:', response.data);
 
       return {
