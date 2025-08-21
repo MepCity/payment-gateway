@@ -135,7 +135,17 @@ const RefundsTable: React.FC<RefundsTableProps> = ({
             </TableHead>
             <TableBody>
               {refunds.map((refund) => (
-                <TableRow key={refund.id} hover>
+                <TableRow 
+                key={refund.id} 
+                hover 
+                onClick={() => onViewRefund(refund)}
+                sx={{ 
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: 'action.hover'
+                  }
+                }}
+              >
                   <TableCell>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
                       {refund.refundId}

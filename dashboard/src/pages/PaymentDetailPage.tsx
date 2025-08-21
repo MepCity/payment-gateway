@@ -483,7 +483,7 @@ const PaymentDetailPage: React.FC = () => {
               
               <Box sx={{ 
                 display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
+                gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: 2 
               }}>
                 <Box>
@@ -519,6 +519,15 @@ const PaymentDetailPage: React.FC = () => {
                   </Typography>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                     {payment.paymentId}
+                  </Typography>
+                </Box>
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Transaction ID
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {payment.transactionId || 'N/A'}
                   </Typography>
                 </Box>
                 
@@ -581,7 +590,7 @@ const PaymentDetailPage: React.FC = () => {
               
               <Box sx={{ 
                 display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
+                gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: 2 
               }}>
                 <Box>
@@ -613,10 +622,10 @@ const PaymentDetailPage: React.FC = () => {
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Connector Label
+                    Connector Transaction ID
                   </Typography>
-                  <Typography variant="body2">
-                    NA
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {payment.gatewayTransactionId || 'N/A'}
                   </Typography>
                 </Box>
                 

@@ -76,7 +76,7 @@ public class PaymentController {
             return ResponseEntity.badRequest().body(response);
         }
     }
-*/
+
     // GET - Get payment by ID
     @GetMapping("/{id}")
     public ResponseEntity<PaymentResponse> getPaymentById(@PathVariable Long id) {
@@ -190,7 +190,17 @@ public class PaymentController {
     // 3D Secure Success Callback
     @PostMapping("/3d-callback/success")
     public ResponseEntity<String> handle3DSecureSuccess(@RequestParam Map<String, String> params) {
-        log.info("3D Secure success callback received with params: {}", params);
+        log.info("3D Secure success callback re
+    
+    /**
+     * Kart numarasını maskele
+     */
+    private String maskCardNumber(String cardNumber) {
+        if (cardNumber == null || cardNumber.length() < 8) {
+            return "****";
+        }
+        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
+    }ceived with params: {}", params);
 
         try {
             String orderId = params.get("orderId");
@@ -272,7 +282,7 @@ public class PaymentController {
         }
     }
 
-
+  
 
 
     // ===== BANK WEBHOOK ENDPOINTS =====
@@ -342,7 +352,7 @@ public class PaymentController {
             Payment payment = paymentOpt.get();
             
             // Webhook data formatı: paymentId|status|message
-            String webhookData = transactionId + "|" + status + "|" + bankType + " payment processed successfully";
+            String webhookData = payment.getPaymentId() + "|" + status + "|" + bankType + " payment processed successfully";
             
             // PaymentService'deki webhook processing metodunu çağır
             paymentService.processBankPaymentWebhook(bankType, webhookData);
