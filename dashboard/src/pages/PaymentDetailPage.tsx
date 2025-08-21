@@ -787,7 +787,13 @@ const PaymentDetailPage: React.FC = () => {
           </TabPanel>
           
           <TabPanel value={tabValue} index={1}>
-            <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+            <Box sx={{ 
+              p: 2, 
+              backgroundColor: 'background.paper', 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6">
                   Payment Request
@@ -801,12 +807,14 @@ const PaymentDetailPage: React.FC = () => {
                 </Button>
               </Box>
               <pre style={{ 
-                backgroundColor: '#fff', 
+                backgroundColor: 'transparent',
                 padding: '16px', 
                 borderRadius: '8px', 
                 overflow: 'auto',
-                fontSize: '12px',
-                border: '1px solid #e0e0e0'
+                fontSize: '12px', 
+                border: '1px solid',
+                borderColor: 'var(--border)',
+                color: 'var(--text)'
               }}>
                 {JSON.stringify(formatPaymentRequest(payment), null, 2)}
               </pre>
@@ -814,7 +822,13 @@ const PaymentDetailPage: React.FC = () => {
           </TabPanel>
           
           <TabPanel value={tabValue} index={2}>
-            <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+            <Box sx={{ 
+              p: 2, 
+              backgroundColor: 'background.paper', 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6">
                   Payment Response
@@ -828,12 +842,14 @@ const PaymentDetailPage: React.FC = () => {
                 </Button>
               </Box>
               <pre style={{ 
-                backgroundColor: '#fff', 
+                backgroundColor: 'transparent',
                 padding: '16px', 
                 borderRadius: '8px', 
                 overflow: 'auto',
                 fontSize: '12px',
-                border: '1px solid #e0e0e0'
+                border: '1px solid',
+                borderColor: 'var(--border)',
+                color: 'var(--text)'
               }}>
                 {JSON.stringify(formatPaymentResponse(payment), null, 2)}
               </pre>

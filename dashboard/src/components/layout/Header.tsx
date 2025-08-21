@@ -20,6 +20,7 @@ import {
   ExitToApp,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -75,9 +76,10 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, onSidebarToggle }) => {
             color="warning"
             size="small"
             sx={{ 
-              backgroundColor: 'warning.light',
-              color: 'warning.dark',
-              fontWeight: 500
+              backgroundColor: 'warning.main',
+              color: 'warning.contrastText',
+              fontWeight: 500,
+              borderColor: 'warning.main'
             }}
           />
         </Box>
@@ -93,6 +95,9 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, onSidebarToggle }) => {
           <IconButton color="inherit" size="large">
             <Notifications />
           </IconButton>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Profile Menu */}
           <IconButton

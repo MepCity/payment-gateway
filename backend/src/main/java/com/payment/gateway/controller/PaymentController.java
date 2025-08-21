@@ -76,7 +76,7 @@ public class PaymentController {
             return ResponseEntity.badRequest().body(response);
         }
     }
-
+*/
     // GET - Get payment by ID
     @GetMapping("/{id}")
     public ResponseEntity<PaymentResponse> getPaymentById(@PathVariable Long id) {
@@ -185,19 +185,7 @@ public class PaymentController {
         }
     }
 
-    // POST - Refund payment
-    @PostMapping("/{id}/refund")
-    public ResponseEntity<PaymentResponse> refundPayment(@PathVariable Long id) {
-        log.info("Refunding payment with ID: {}", id);
 
-        PaymentResponse response = paymentService.refundPayment(id);
-
-        if (response.isSuccess()) {
-            return ResponseEntity.ok(response);
-        } else {
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
 
     // 3D Secure Success Callback
     @PostMapping("/3d-callback/success")
@@ -333,28 +321,28 @@ public class PaymentController {
     /**
      * Banka'dan gelen payment webhook'ını simüle et (test için)
      */
-    @PostMapping("/{paymentId}/simulate-bank-webhook")
+    @PostMapping("/{transactionId}/simulate-bank-webhook")
     public ResponseEntity<Map<String, Object>> simulateBankWebhook(
-            @PathVariable String paymentId,
+            @PathVariable String transactionId,
             @RequestParam(defaultValue = "SUCCESS") String status,
             @RequestParam(defaultValue = "GARANTI") String bankType) {
         
-        log.info("🏦 Simulating bank webhook for payment: {} - Status: {} - Bank: {}", paymentId, status, bankType);
+        log.info("🏦 Simulating bank webhook for payment with transactionId: {} - Status: {} - Bank: {}", transactionId, status, bankType);
         
         try {
-            // Payment'ı bul
-            Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
+            // Payment'ı transactionId ile bul
+            Optional<Payment> paymentOpt = paymentRepository.findByTransactionId(transactionId);
             if (!paymentOpt.isPresent()) {
                 Map<String, Object> errorResult = new HashMap<>();
                 errorResult.put("success", false);
-                errorResult.put("message", "Payment not found with ID: " + paymentId);
+                errorResult.put("message", "Payment not found with ID: " + transactionId);
                 return ResponseEntity.badRequest().body(errorResult);
             }
             
             Payment payment = paymentOpt.get();
             
             // Webhook data formatı: paymentId|status|message
-            String webhookData = paymentId + "|" + status + "|" + bankType + " payment processed successfully";
+            String webhookData = transactionId + "|" + status + "|" + bankType + " payment processed successfully";
             
             // PaymentService'deki webhook processing metodunu çağır
             paymentService.processBankPaymentWebhook(bankType, webhookData);
@@ -362,7 +350,8 @@ public class PaymentController {
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("message", "Bank webhook simulated successfully");
-            result.put("paymentId", paymentId);
+            result.put("transactionId", transactionId);
+            result.put("paymentId", payment.getPaymentId());
             result.put("status", status);
             result.put("bankType", bankType);
             result.put("webhookData", webhookData);
@@ -370,7 +359,7 @@ public class PaymentController {
             return ResponseEntity.ok(result);
             
         } catch (Exception e) {
-            log.error("Error simulating bank webhook for payment: {}", paymentId, e);
+            log.error("Error simulating bank webhook for payment with transactionId: {}", transactionId, e);
             
             Map<String, Object> errorResult = new HashMap<>();
             errorResult.put("success", false);

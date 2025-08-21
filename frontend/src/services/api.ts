@@ -54,9 +54,7 @@ export const paymentAPI = {
   deletePayment: (id: number): Promise<void> =>
     api.delete(`/v1/payments/${id}`).then(response => response.data),
 
-  // Refund payment
-  refundPayment: (id: number): Promise<PaymentResponse> =>
-    api.post(`/v1/payments/${id}/refund`).then(response => response.data),
+
 
   // Health check
   healthCheck: (): Promise<string> =>

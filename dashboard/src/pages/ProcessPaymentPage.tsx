@@ -413,7 +413,14 @@ const ProcessPaymentPage: React.FC = () => {
       <Card>
         <CardContent>
           <form onSubmit={handleSubmit}>
-            <Box sx={{ mb: 3 }}>
+            <Box sx={{ 
+              mb: 3,
+              p: 3, 
+              bgcolor: 'background.paper', 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <AccountBalance />
                 Transaction Details
@@ -493,7 +500,13 @@ const ProcessPaymentPage: React.FC = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            <Box>
+            <Box sx={{ 
+              p: 3, 
+              bgcolor: 'background.paper', 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <CreditCard />
                 Card Information
@@ -565,7 +578,14 @@ const ProcessPaymentPage: React.FC = () => {
             </Box>
 
                          {/* Test Cards Section */}
-             <Box sx={{ mt: 4, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+             <Box sx={{ 
+               mt: 4, 
+               p: 3, 
+               bgcolor: 'background.paper', 
+               borderRadius: 2,
+               border: '1px solid',
+               borderColor: 'divider'
+             }}>
                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                  <CreditCard />
                  Test Cards
