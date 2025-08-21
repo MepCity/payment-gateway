@@ -5,6 +5,7 @@ import com.payment.gateway.dto.PaymentResponse;
 import com.payment.gateway.model.Payment;
 import com.payment.gateway.service.PaymentService;
 import com.payment.gateway.service.MerchantAuthService;
+import com.payment.gateway.repository.PaymentRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/payments")
@@ -25,6 +27,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final MerchantAuthService merchantAuthService;
+    private final PaymentRepository paymentRepository;
 
     // POST - Create new payment
     @PostMapping
@@ -324,6 +327,56 @@ public class PaymentController {
             log.error("❌ Error processing bank webhook", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Failed to process webhook: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Banka'dan gelen payment webhook'ını simüle et (test için)
+     */
+    @PostMapping("/{paymentId}/simulate-bank-webhook")
+    public ResponseEntity<Map<String, Object>> simulateBankWebhook(
+            @PathVariable String paymentId,
+            @RequestParam(defaultValue = "SUCCESS") String status,
+            @RequestParam(defaultValue = "GARANTI") String bankType) {
+        
+        log.info("🏦 Simulating bank webhook for payment: {} - Status: {} - Bank: {}", paymentId, status, bankType);
+        
+        try {
+            // Payment'ı bul
+            Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
+            if (!paymentOpt.isPresent()) {
+                Map<String, Object> errorResult = new HashMap<>();
+                errorResult.put("success", false);
+                errorResult.put("message", "Payment not found with ID: " + paymentId);
+                return ResponseEntity.badRequest().body(errorResult);
+            }
+            
+            Payment payment = paymentOpt.get();
+            
+            // Webhook data formatı: paymentId|status|message
+            String webhookData = paymentId + "|" + status + "|" + bankType + " payment processed successfully";
+            
+            // PaymentService'deki webhook processing metodunu çağır
+            paymentService.processBankPaymentWebhook(bankType, webhookData);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "Bank webhook simulated successfully");
+            result.put("paymentId", paymentId);
+            result.put("status", status);
+            result.put("bankType", bankType);
+            result.put("webhookData", webhookData);
+            
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            log.error("Error simulating bank webhook for payment: {}", paymentId, e);
+            
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("success", false);
+            errorResult.put("message", "Failed to simulate bank webhook: " + e.getMessage());
+            
+            return ResponseEntity.badRequest().body(errorResult);
         }
     }
     

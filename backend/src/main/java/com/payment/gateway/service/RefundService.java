@@ -2,7 +2,6 @@ package com.payment.gateway.service;
 
 import com.payment.gateway.dto.RefundRequest;
 import com.payment.gateway.dto.RefundResponse;
-import com.payment.gateway.dto.WebhookDeliveryRequest;
 import com.payment.gateway.model.Refund;
 import com.payment.gateway.repository.RefundRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.payment.gateway.service.AuditService;
 import com.payment.gateway.model.AuditLog;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,7 +28,6 @@ public class RefundService {
     private final RefundRepository refundRepository;
     private final AuditService auditService;
     private final PaymentService paymentService;
-    private final WebhookService webhookService;
     
     public RefundResponse createRefund(RefundRequest request) {
         try {
@@ -77,12 +76,9 @@ public class RefundService {
             refund.setDescription(request.getDescription());
             refund.setRefundDate(LocalDateTime.now());
             
-            // İlk olarak PROCESSING status'u ile başla
-            refund.setStatus(Refund.RefundStatus.PROCESSING);
-            refund.setGatewayResponse("Refund request sent to bank - processing");
-            refund.setGatewayRefundId("GREF-" + UUID.randomUUID().toString().substring(0, 8));
-            
-            // Bank webhook'u bekleyecek, şimdilik PROCESSING olarak bırak
+            // Process refund through gateway (simulated)
+            Refund.RefundStatus finalStatus = processRefundThroughGateway(refund);
+            refund.setStatus(finalStatus);
             
             // Save refund
             Refund savedRefund = refundRepository.save(refund);
@@ -632,11 +628,7 @@ public class RefundService {
             log.info("Notifying merchant {} about refund status change for refund ID: {}", 
                     refund.getMerchantId(), refund.getRefundId());
             
-            // WebhookDeliveryRequest oluştur
-            WebhookDeliveryRequest webhookRequest = new WebhookDeliveryRequest();
-            webhookRequest.setMerchantId(refund.getMerchantId());
-            
-            // Event type'ı refund status'una göre belirle
+            // WebhookService ile merchant'a webhook gönder (şimdilik sadece log)
             String eventType;
             switch (refund.getStatus()) {
                 case COMPLETED:
@@ -652,32 +644,7 @@ public class RefundService {
                     eventType = "REFUND_CREATED";
             }
             
-            webhookRequest.setEventType(eventType);
-            webhookRequest.setEntityId(refund.getRefundId());
-            
-            // Event data hazırla
-            java.util.Map<String, Object> eventData = new java.util.HashMap<>();
-            eventData.put("refundId", refund.getRefundId());
-            eventData.put("paymentId", refund.getPaymentId());
-            eventData.put("transactionId", refund.getTransactionId());
-            eventData.put("amount", refund.getAmount());
-            eventData.put("currency", refund.getCurrency());
-            eventData.put("status", refund.getStatus().toString());
-            eventData.put("reason", refund.getReason());
-            eventData.put("description", refund.getDescription());
-            eventData.put("merchantId", refund.getMerchantId());
-            eventData.put("customerId", refund.getCustomerId());
-            eventData.put("gatewayRefundId", refund.getGatewayRefundId());
-            eventData.put("refundDate", refund.getRefundDate());
-            eventData.put("updatedAt", refund.getUpdatedAt());
-            
-            webhookRequest.setEventData(eventData);
-            
-            // Webhook'u gönder
-            webhookService.triggerWebhookDelivery(webhookRequest);
-            
-            log.info("Refund webhook triggered for merchant {} - Event: {}", 
-                    refund.getMerchantId(), eventType);
+            log.info("Webhook would be triggered for merchant {} - Event: {} (temporarily disabled)", refund.getMerchantId(), eventType);
             
         } catch (Exception e) {
             log.error("Error notifying merchant about refund status: {}", e.getMessage());
