@@ -56,9 +56,9 @@ export const paymentAPI = {
 
 
 
-  // Health check
-  healthCheck: (): Promise<string> =>
-    api.get('/v1/payments/health').then(response => response.data),
+  // Health check using Spring Boot Actuator
+  healthCheck: (): Promise<any> =>
+    api.get('/actuator/health').then(response => response.data),
 };
 
 export default api;

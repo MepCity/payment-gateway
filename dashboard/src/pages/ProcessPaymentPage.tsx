@@ -2,19 +2,22 @@ import React, { useState } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   TextField,
   Button,
+  Card,
+  CardContent,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Alert,
   CircularProgress,
+  Tabs,
+  Tab,
   Divider,
+  Chip,
 } from '@mui/material';
-import { 
+import {
   Payment,
   CreditCard,
   AccountBalance,
@@ -77,7 +80,7 @@ const ProcessPaymentPage: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<{
+  const [success, setSuccess] = useState<{
     message: string;
     paymentId: string;
     transactionId: string;
@@ -659,19 +662,7 @@ const ProcessPaymentPage: React.FC = () => {
                 Clear Form
               </Button>
               
-              {success && (
-                <Button
-                  type="button"
-                  variant="outlined"
-                  color="success"
-                  onClick={() => navigate('/dashboard/payments')}
-                  startIcon={<Sync />}
-                >
-                  View in Dashboard
-                </Button>
-              )}
-              
-                  <Button
+              <Button
                 type="submit"
                 variant="contained"
                 disabled={loading}

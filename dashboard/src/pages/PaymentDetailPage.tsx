@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
+  Button,
   Card,
   CardContent,
-  Button,
   Chip,
-  Divider,
   Alert,
   CircularProgress,
   Accordion,
@@ -41,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+
 import { useAuth } from '../contexts/AuthContext';
 import { dashboardAPI } from '../services/dashboardApi';
 import { PaymentDetail, PaymentEvent, PaymentLog, PaymentStatus, PaymentMethod, RefundReason } from '../types/dashboard';
@@ -622,10 +622,10 @@ const PaymentDetailPage: React.FC = () => {
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Connector Transaction ID
+                    Connector Label
                   </Typography>
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    {payment.gatewayTransactionId || 'N/A'}
+                  <Typography variant="body2">
+                    NA
                   </Typography>
                 </Box>
                 
@@ -694,7 +694,7 @@ const PaymentDetailPage: React.FC = () => {
               </Typography>
               
               <Box sx={{ pl: 2 }}>
-                {events.map((event, index) => (
+                {events.map((event: PaymentEvent, index: number) => (
                   <Box key={event.id} sx={{ display: 'flex', gap: 2, mb: 2 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       {getEventIcon(event.status)}
@@ -733,9 +733,6 @@ const PaymentDetailPage: React.FC = () => {
                         </Typography>
                       )}
                       
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(event.timestamp)}
-                      </Typography>
                     </Box>
                   </Box>
                 ))}

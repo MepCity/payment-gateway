@@ -234,3 +234,12 @@ export interface TableColumn<T> {
   sortable?: boolean;
   render?: (value: any, record: T) => React.ReactNode;
 }
+
+export interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}

@@ -1,17 +1,5 @@
 import axios from 'axios';
-import { 
-  PaymentListItem, 
-  PaymentDetail, 
-  PaymentStats, 
-  DashboardFilters,
-  RefundFilters, 
-  PaginationInfo,
-  RefundListItem,
-  RefundDetail,
-  RefundStats,
-  RefundStatus,
-  RefundReason
-} from '../types/dashboard';
+import { PaymentListItem, PaymentDetail, PaymentStats, DashboardFilters, PaginationInfo } from '../types/dashboard';
 
 const API_BASE_URL = 'http://localhost:8080';
 
@@ -27,7 +15,7 @@ const dashboardApiClient = axios.create({
 dashboardApiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   const apiKey = localStorage.getItem('auth_api_key');
-  
+      
   console.log('Dashboard API - Token:', token ? 'Present' : 'Missing');
   console.log('Dashboard API - API Key:', apiKey ? 'Present' : 'Missing');
   
@@ -191,7 +179,6 @@ export const dashboardAPI = {
         })),
         pagination: {
           page,
-          currentPage: page,
           pageSize,
           totalCount,
           totalPages: Math.ceil(totalCount / pageSize),
@@ -205,7 +192,6 @@ export const dashboardAPI = {
         payments: [],
         pagination: {
           page,
-          currentPage: page,
           pageSize,
           totalCount: 0,
           totalPages: 0,
@@ -222,7 +208,7 @@ export const dashboardAPI = {
       // Try to get by payment ID first, then by transaction ID
       let response;
       try {
-        response = await dashboardApiClient.get(`/v1/payments/payment/${paymentId}`);
+        response = await dashboardApiClient.get(`/v1/payments/${paymentId}`);
       } catch (error: any) {
         if (error.response?.status === 404) {
           // Try with transaction ID
@@ -233,14 +219,6 @@ export const dashboardAPI = {
       }
       
       const payment = response.data;
-      
-      // Convert date arrays to ISO strings if needed
-      const convertDate = (dateField: any) => {
-        if (Array.isArray(dateField)) {
-          return new Date(dateField[0], dateField[1] - 1, dateField[2], dateField[3], dateField[4], dateField[5]).toISOString();
-        }
-        return dateField;
-      };
       
       // Convert backend response to frontend format
       return {
@@ -261,15 +239,15 @@ export const dashboardAPI = {
         description: payment.description || '',
         gatewayResponse: payment.gatewayResponse || payment.gateway_response,
         gatewayTransactionId: payment.gatewayTransactionId || payment.gateway_transaction_id,
-        createdAt: convertDate(payment.createdAt) || convertDate(payment.created_at),
-        updatedAt: convertDate(payment.updatedAt) || convertDate(payment.updated_at),
-        completedAt: convertDate(payment.completedAt) || convertDate(payment.completed_at),
+        createdAt: payment.createdAt || payment.created_at,
+        updatedAt: payment.updatedAt || payment.updated_at,
+        completedAt: payment.completedAt || payment.completed_at,
         // Mock events and logs for now
         events: [
           {
             id: '1',
             eventType: 'PAYMENT_INITIATED',
-            timestamp: convertDate(payment.createdAt),
+            timestamp: payment.createdAt,
             status: 'INFO' as const,
             message: 'Payment request received',
             details: { amount: payment.amount, currency: payment.currency }
@@ -277,7 +255,7 @@ export const dashboardAPI = {
           {
             id: '2',
             eventType: 'PAYMENT_PROCESSING',
-            timestamp: convertDate(payment.updatedAt),
+            timestamp: payment.updatedAt,
             status: payment.status === 'COMPLETED' ? 'SUCCESS' as const : payment.status === 'FAILED' ? 'FAILED' as const : 'INFO' as const,
             message: `Payment ${payment.status.toLowerCase()}`,
             details: { gateway: payment.gatewayTransactionId }
@@ -287,7 +265,7 @@ export const dashboardAPI = {
           {
             id: '1',
             level: 'INFO' as const,
-            timestamp: convertDate(payment.createdAt),
+            timestamp: payment.createdAt,
             message: `POST /v1/payments - Payment created`,
             source: 'API' as const,
             latency: 150,
@@ -296,7 +274,7 @@ export const dashboardAPI = {
           {
             id: '2',
             level: payment.status === 'FAILED' ? 'ERROR' as const : 'INFO' as const,
-            timestamp: convertDate(payment.updatedAt),
+            timestamp: payment.updatedAt,
             message: `Payment ${payment.status} - ${payment.gatewayResponse || 'No response'}`,
             source: 'GATEWAY' as const,
             latency: 200,
@@ -354,246 +332,5 @@ export const dashboardAPI = {
   syncPaymentStatus: async (paymentId: string) => {
     const response = await dashboardApiClient.post(`/v1/payments/${paymentId}/sync`);
     return response.data;
-  },
-
-  // ===== REFUND API METHODS =====
-
-  // Get refund statistics
-  getRefundStats: async (merchantId: string): Promise<RefundStats> => {
-    try {
-      // For test mode, get all refunds regardless of merchant ID
-      const response = await dashboardApiClient.get(`/v1/refunds`);
-      const refunds = response.data;
-      
-      // Calculate stats from refunds
-      const stats = {
-        totalRefunds: refunds.length,
-        completedRefunds: refunds.filter((r: any) => r.status === 'COMPLETED').length,
-        pendingRefunds: refunds.filter((r: any) => r.status === 'PENDING' || r.status === 'PROCESSING').length,
-        failedRefunds: refunds.filter((r: any) => r.status === 'FAILED').length,
-        totalRefundAmount: refunds.reduce((sum: number, r: any) => sum + r.amount, 0),
-        refundRate: refunds.length > 0 ? (refunds.filter((r: any) => r.status === 'COMPLETED').length / refunds.length) * 100 : 0,
-        averageRefundAmount: refunds.length > 0 ? refunds.reduce((sum: number, r: any) => sum + r.amount, 0) / refunds.length : 0,
-      };
-      
-      return stats;
-    } catch (error) {
-      console.error('Get refund stats error:', error);
-      // Return default stats on error
-      return {
-        totalRefunds: 0,
-        completedRefunds: 0,
-        pendingRefunds: 0,
-        failedRefunds: 0,
-        totalRefundAmount: 0,
-        refundRate: 0,
-        averageRefundAmount: 0,
-      };
-    }
-  },
-
-  // Get refunds list with filters and pagination
-  getRefunds: async (
-    merchantId: string, 
-    filters?: RefundFilters,
-    page: number = 1,
-    pageSize: number = 25
-  ): Promise<{ refunds: RefundListItem[]; pagination: PaginationInfo; stats?: RefundStats }> => {
-    try {
-      // For test mode, get all refunds regardless of merchant ID
-      console.log('Fetching refunds from backend...');
-      const response = await dashboardApiClient.get(`/v1/refunds`);
-      let refunds = response.data;
-      console.log('Backend refunds response:', refunds);
-
-      // Convert date arrays to ISO strings if needed
-      refunds = refunds.map((r: any) => ({
-        ...r,
-        refundDate: Array.isArray(r.refundDate) ? 
-          new Date(r.refundDate[0], r.refundDate[1] - 1, r.refundDate[2], r.refundDate[3], r.refundDate[4], r.refundDate[5]).toISOString() : 
-          r.refundDate,
-        createdAt: Array.isArray(r.createdAt) ? 
-          new Date(r.createdAt[0], r.createdAt[1] - 1, r.createdAt[2], r.createdAt[3], r.createdAt[4], r.createdAt[5]).toISOString() : 
-          r.createdAt,
-        updatedAt: Array.isArray(r.updatedAt) ? 
-          new Date(r.updatedAt[0], r.updatedAt[1] - 1, r.updatedAt[2], r.updatedAt[3], r.updatedAt[4], r.updatedAt[5]).toISOString() : 
-          r.updatedAt,
-      }));
-
-      // Apply filters
-      if (filters?.search) {
-        const searchTerm = filters.search.toLowerCase();
-        refunds = refunds.filter((r: any) => 
-          r.refundId?.toLowerCase().includes(searchTerm) ||
-          r.paymentId?.toLowerCase().includes(searchTerm) ||
-          r.transactionId?.toLowerCase().includes(searchTerm) ||
-          r.customerId?.toLowerCase().includes(searchTerm) ||
-          r.description?.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      if (filters?.status) {
-        refunds = refunds.filter((r: any) => r.status === filters.status);
-      }
-
-      if (filters?.dateFrom) {
-        refunds = refunds.filter((r: any) => new Date(r.createdAt) >= new Date(filters.dateFrom!));
-      }
-
-      if (filters?.dateTo) {
-        refunds = refunds.filter((r: any) => new Date(r.createdAt) <= new Date(filters.dateTo!));
-      }
-
-      // Sort by creation date (newest first)
-      refunds.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      // Apply pagination
-      const totalCount = refunds.length;
-      const startIndex = (page - 1) * pageSize;
-      const paginatedRefunds = refunds.slice(startIndex, startIndex + pageSize);
-
-      return {
-        refunds: paginatedRefunds.map((r: any) => ({
-          id: r.id,
-          refundId: r.refundId || r.refund_id,
-          paymentId: r.paymentId || r.payment_id,
-          transactionId: r.transactionId || r.transaction_id,
-          merchantId: r.merchantId || r.merchant_id,
-          customerId: r.customerId || r.customer_id,
-          amount: r.amount,
-          currency: r.currency,
-          status: r.status,
-          reason: r.reason,
-          description: r.description || '',
-          gatewayResponse: r.gatewayResponse || r.gateway_response,
-          gatewayRefundId: r.gatewayRefundId || r.gateway_refund_id,
-          refundDate: r.refundDate || r.refund_date,
-          createdAt: r.createdAt || r.created_at,
-          updatedAt: r.updatedAt || r.updated_at,
-        })),
-        pagination: {
-          page,
-          currentPage: page,
-          totalPages: Math.ceil(totalCount / pageSize),
-          totalCount,
-          pageSize,
-          hasNext: page < Math.ceil(totalCount / pageSize),
-          hasPrev: page > 1,
-        }
-      };
-    } catch (error) {
-      console.error('Get refunds error:', error);
-      throw error;
-    }
-  },
-
-  // Get refund detail with events and logs
-  getRefundDetail: async (refundId: string): Promise<RefundDetail> => {
-    try {
-      // Try to get by refund ID first
-      let response;
-      try {
-        response = await dashboardApiClient.get(`/v1/refunds/refund-id/${refundId}`);
-      } catch (error: any) {
-        if (error.response?.status === 404) {
-          // Try with payment ID or transaction ID as fallback
-          throw new Error(`Refund not found: ${refundId}`);
-        } else {
-          throw error;
-        }
-      }
-      
-      const refund = response.data;
-      
-      // Convert date arrays to ISO strings if needed
-      const convertDate = (dateField: any) => {
-        if (Array.isArray(dateField)) {
-          return new Date(dateField[0], dateField[1] - 1, dateField[2], dateField[3], dateField[4], dateField[5]).toISOString();
-        }
-        return dateField;
-      };
-      
-      // Convert backend response to frontend format
-      return {
-        id: refund.id,
-        refundId: refund.refundId || refund.refund_id,
-        paymentId: refund.paymentId || refund.payment_id,
-        transactionId: refund.transactionId || refund.transaction_id,
-        merchantId: refund.merchantId || refund.merchant_id,
-        customerId: refund.customerId || refund.customer_id,
-        amount: refund.amount,
-        currency: refund.currency,
-        status: refund.status,
-        reason: refund.reason,
-        description: refund.description || '',
-        gatewayResponse: refund.gatewayResponse || refund.gateway_response,
-        gatewayRefundId: refund.gatewayRefundId || refund.gateway_refund_id,
-        refundDate: convertDate(refund.refundDate) || convertDate(refund.refund_date),
-        createdAt: convertDate(refund.createdAt) || convertDate(refund.created_at),
-        updatedAt: convertDate(refund.updatedAt) || convertDate(refund.updated_at),
-        // Mock events and logs for now
-        events: [
-          {
-            id: '1',
-            eventType: 'REFUND_INITIATED',
-            timestamp: convertDate(refund.createdAt),
-            status: 'INFO' as const,
-            message: 'Refund request received',
-            details: { amount: refund.amount, currency: refund.currency }
-          },
-          {
-            id: '2',
-            eventType: 'REFUND_PROCESSING',
-            timestamp: convertDate(refund.updatedAt),
-            status: refund.status === 'COMPLETED' ? 'SUCCESS' as const : refund.status === 'FAILED' ? 'FAILED' as const : 'INFO' as const,
-            message: `Refund ${refund.status.toLowerCase()}`,
-            details: { gateway: refund.gatewayRefundId }
-          }
-        ],
-        logs: [
-          {
-            id: '1',
-            level: 'INFO' as const,
-            timestamp: convertDate(refund.createdAt),
-            message: `POST /v1/refunds - Refund created`,
-            source: 'API' as const,
-            latency: 150,
-            urlPath: '/v1/refunds'
-          },
-          {
-            id: '2',
-            level: refund.status === 'FAILED' ? 'ERROR' as const : 'INFO' as const,
-            timestamp: convertDate(refund.updatedAt),
-            message: `Refund ${refund.status} - ${refund.gatewayResponse || 'No response'}`,
-            source: 'GATEWAY' as const,
-            latency: 200,
-            urlPath: '/gateway/refund'
-          }
-        ]
-      };
-    } catch (error) {
-      console.error('Get refund detail error:', error);
-      throw error;
-    }
-  },
-
-  // Create new refund
-  createRefund: async (refundData: {
-    paymentId: string;
-    transactionId: string;
-    merchantId: string;
-    customerId: string;
-    amount: number;
-    currency: string;
-    reason: RefundReason;
-    description?: string;
-  }) => {
-    try {
-      const response = await dashboardApiClient.post('/v1/refunds', refundData);
-      return response.data;
-    } catch (error) {
-      console.error('Create refund error:', error);
-      throw error;
-    }
   }
 };

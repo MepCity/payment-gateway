@@ -1,72 +1,46 @@
-/* Dark Theme Variables */
+/* Light theme variables */
 :root {
-  /* Light Theme Colors */
-  --primary-light: #3b82f6;
-  --secondary-light: #64748b;
-  --background-light: #ffffff;
-  --surface-light: #f8fafc;
-  --text-light: #1e293b;
-  --text-secondary-light: #64748b;
-  --border-light: #e2e8f0;
-  --success-light: #10b981;
-  --warning-light: #f59e0b;
-  --error-light: #ef4444;
-  
-  /* Dark Theme Colors */
-  --primary-dark: #60a5fa;
-  --secondary-dark: #94a3b8;
-  --background-dark: #0f172a;
-  --surface-dark: #1e293b;
-  --surface-dark-hover: #334155;
-  --text-dark: #f1f5f9;
-  --text-secondary-dark: #94a3b8;
-  --border-dark: #334155;
-  --success-dark: #34d399;
-  --warning-dark: #fbbf24;
-  --error-dark: #f87171;
-  
-  /* Default to light theme */
-  --primary: var(--primary-light);
-  --secondary: var(--secondary-light);
-  --background: var(--background-light);
-  --surface: var(--surface-light);
-  --text: var(--text-light);
-  --text-secondary: var(--text-secondary-light);
-  --border: var(--border-light);
-  --success: var(--success-light);
-  --warning: var(--warning-light);
-  --error: var(--error-light);
+  --background: #ffffff;
+  --background-secondary: #f8fafc;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --border-secondary: #f1f5f9;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
 }
 
-/* Dark Theme Class */
+/* Dark theme variables */
 [data-theme="dark"] {
-  --primary: var(--primary-dark);
-  --secondary: var(--secondary-dark);
-  --background: var(--background-dark);
-  --surface: var(--surface-dark);
-  --text: var(--text-dark);
-  --text-secondary: var(--text-secondary-dark);
-  --border: var(--border-dark);
-  --success: var(--success-dark);
-  --warning: var(--warning-dark);
-  --error: var(--error-dark);
+  --background: #0f172a;
+  --background-secondary: #1e293b;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border: #334155;
+  --border-secondary: #475569;
+  --primary: #60a5fa;
+  --primary-hover: #3b82f6;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #60a5fa;
 }
 
-/* Apply theme colors */
+/* Apply theme colors to elements */
 body {
   background-color: var(--background);
   color: var(--text);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Card and surface elements */
 .card, .bg-white, .bg-gray-50, .bg-gray-100 {
-  background-color: var(--surface) !important;
-  border-color: var(--border) !important;
-  color: var(--text) !important;
+  background-color: var(--background-secondary) !important;
 }
 
-/* Text colors */
 .text-gray-600, .text-gray-700, .text-gray-800, .text-gray-900 {
   color: var(--text) !important;
 }
@@ -75,109 +49,91 @@ body {
   color: var(--text-secondary) !important;
 }
 
-/* Border colors */
 .border, .border-gray-200, .border-gray-300 {
   border-color: var(--border) !important;
 }
 
-/* Input fields */
 input, select, textarea {
-  background-color: var(--surface) !important;
-  border-color: var(--border) !important;
-  color: var(--text) !important;
+  background-color: var(--background);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 input:focus, select:focus, textarea:focus {
-  border-color: var(--primary) !important;
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
-/* Buttons */
 .btn-primary {
-  background-color: var(--primary) !important;
-  border-color: var(--primary) !important;
-  color: white !important;
-}
-
-/* JSON Display Areas */
-pre {
-  background-color: var(--surface) !important;
-  border-color: var(--border) !important;
-  color: var(--text) !important;
-}
-
-/* Code blocks */
-code {
-  background-color: var(--surface) !important;
-  color: var(--text) !important;
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: white;
 }
 
 .btn-primary:hover {
-  background-color: var(--primary-dark) !important;
-  border-color: var(--primary-dark) !important;
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .btn-secondary {
-  background-color: var(--secondary) !important;
-  border-color: var(--secondary) !important;
-  color: white !important;
+  background-color: var(--background-secondary);
+  border-color: var(--border);
+  color: var(--text);
 }
 
-/* Table styles */
 .table {
-  background-color: var(--surface) !important;
-  color: var(--text) !important;
+  background-color: var(--background);
+  color: var(--text);
 }
 
 .table th {
-  background-color: var(--surface-dark-hover) !important;
-  color: var(--text) !important;
-  border-color: var(--border) !important;
+  background-color: var(--background-secondary);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .table td {
-  border-color: var(--border) !important;
-  color: var(--text) !important;
+  border-color: var(--border);
 }
 
-/* Navigation and sidebar */
 .navbar, .sidebar {
-  background-color: var(--surface) !important;
-  border-color: var(--border) !important;
+  background-color: var(--background-secondary);
+  border-color: var(--border);
 }
 
 .navbar-brand, .sidebar-brand {
-  color: var(--text) !important;
+  color: var(--text);
 }
 
 .nav-link {
-  color: var(--text-secondary) !important;
+  color: var(--text-secondary);
 }
 
 .nav-link:hover, .nav-link.active {
-  color: var(--primary) !important;
-  background-color: var(--surface-dark-hover) !important;
+  color: var(--primary);
+  background-color: var(--background);
 }
 
-/* Status chips */
 .status-chip {
-  background-color: var(--surface-dark-hover) !important;
-  color: var(--text) !important;
-  border-color: var(--border) !important;
+  background-color: var(--primary);
+  color: white;
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
-/* Hover effects */
 .hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover {
-  background-color: var(--surface-dark-hover) !important;
+  background-color: var(--background-secondary) !important;
 }
 
-/* Scrollbar */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: var(--background-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -186,92 +142,72 @@ code {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--secondary);
+  background: var(--text-secondary);
 }
 
-/* Smooth transitions */
 * {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  box-sizing: border-box;
 }
 
-/* Existing styles... */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+html, body, #root {
+  height: 100%;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
 }
-  
-  * {
-    box-sizing: border-box;
-  }
-  
-  html, body, #root {
-    height: 100%;
-  }
-  
-  /* Scrollbar styling */
-  ::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: #f1f1f1;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: #a1a1a1;
-  }
-  
-  /* Custom styles for dashboard */
-  .dashboard-container {
-    height: 100vh;
-    overflow: hidden;
-  }
-  
-  .sidebar-transition {
-    transition: width 0.3s ease-in-out;
-  }
-  
-  /* Status badges */
-  .status-completed {
-    background-color: #4caf50;
-    color: white;
-  }
-  
-  .status-pending {
-    background-color: #ff9800;
-    color: white;
-  }
-  
-  .status-failed {
-    background-color: #f44336;
-    color: white;
-  }
-  
-  .status-processing {
-    background-color: #2196f3;
-    color: white;
-  }
-  
-  .status-cancelled {
-    background-color: #9e9e9e;
-    color: white;
-  }
-  
-  .status-refunded {
-    background-color: #673ab7;
-    color: white;
-  }
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Custom styles for dashboard */
+.dashboard-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar-transition {
+  transition: width 0.3s ease-in-out;
+}
+
+/* Status badges */
+.status-completed {
+  background-color: #4caf50;
+  color: white;
+}
+
+.status-pending {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status-failed {
+  background-color: #f44336;
+  color: white;
+}
+
+.status-processing {
+  background-color: #2196f3;
+  color: white;
+}
+
+.status-cancelled {
+  background-color: #9e9e9e;
+  color: white;
+}
+
+.status-refunded {
+  background-color: #673ab7;
+  color: white;
+}

@@ -309,8 +309,42 @@ public class PaymentService {
             return createErrorResponse("Payment not found with ID: " + id);
         }
     }
-    /* */
-
+    
+    public PaymentResponse refundPayment(Long id) {
+        Optional<Payment> paymentOpt = paymentRepository.findById(id);
+        if (paymentOpt.isPresent()) {
+            Payment payment = paymentOpt.get();
+            
+            if (payment.getStatus() == Payment.PaymentStatus.COMPLETED) {
+                payment.setStatus(Payment.PaymentStatus.REFUNDED);
+                payment.setGatewayResponse("Payment refunded");
+                Payment updatedPayment = paymentRepository.save(payment);
+                
+                // Audit log - Payment refund
+                auditService.logEvent(
+                    auditService.createEvent()
+                        .eventType("PAYMENT")
+                        .action("REFUND")
+                        .actor("api-user")
+                        .resourceType("Payment")
+                        .resourceId(payment.getPaymentId())
+                        .additionalData("transactionId", payment.getTransactionId())
+                        .additionalData("amount", payment.getAmount())
+                        .additionalData("currency", payment.getCurrency())
+                        .additionalData("refundReason", "Manual refund request")
+                        .complianceTag("PCI_DSS")
+                        .complianceTag("GDPR")
+                );
+                
+                log.info("Payment refunded successfully with ID: {}", id);
+                return createPaymentResponse(updatedPayment, "Payment refunded successfully", true);
+            } else {
+                return createErrorResponse("Cannot refund payment with status: " + payment.getStatus());
+            }
+        } else {
+            return createErrorResponse("Payment not found with ID: " + id);
+        }
+    }
     
     /**
      * 3D Secure sürecini tamamlar

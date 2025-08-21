@@ -121,8 +121,7 @@ const PaymentsPage: React.FC = () => {
 
   // Load data
   const loadPayments = async () => {
-    // Temporary: Skip auth check for testing
-    // if (!authState.user?.merchantId) return;
+    if (!authState.user?.merchantId) return;
     
     setLoading(true);
     setError(null);
@@ -132,7 +131,7 @@ const PaymentsPage: React.FC = () => {
       
       // Real API call
       const response = await dashboardAPI.getPayments(
-        authState.user?.merchantId || 'TEST_MERCHANT',
+        authState.user.merchantId,
         filters,
         pagination.page,
         pagination.pageSize
@@ -149,7 +148,7 @@ const PaymentsPage: React.FC = () => {
       }));
       
       // Get real stats
-      const statsResponse = await dashboardAPI.getPaymentStats(authState.user?.merchantId || 'TEST_MERCHANT');
+      const statsResponse = await dashboardAPI.getPaymentStats(authState.user.merchantId);
       console.log('Stats API response:', statsResponse);
       setStats(statsResponse);
       
