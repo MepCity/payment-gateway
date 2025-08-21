@@ -6,6 +6,7 @@ import com.payment.gateway.model.Dispute;
 import com.payment.gateway.service.MerchantService;
 import com.payment.gateway.service.PaymentService;
 import com.payment.gateway.service.DisputeService;
+import com.payment.gateway.service.RefundService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,7 @@ public class MerchantDashboardController {
     private final MerchantService merchantService;
     private final DisputeService disputeService;
     private final PaymentService paymentService;
+    private final RefundService refundService;
     
     /**
      * Merchant dashboard ana sayfası - Frontend için stats
@@ -43,8 +45,8 @@ public class MerchantDashboardController {
             // Payment istatistikleri al
             var allPayments = paymentService.getPaymentsByMerchantId(merchantId);
             
-            // Refund istatistikleri al (örnek)
-            // var allRefunds = refundService.getRefundsByMerchantId(merchantId);
+            // Refund istatistikleri al
+            var allRefunds = refundService.getRefundsByMerchantId(merchantId);
             
             // Dispute istatistikleri al
             var allDisputes = disputeService.getDisputesByMerchantId(merchantId);
@@ -71,10 +73,19 @@ public class MerchantDashboardController {
                 .distinct()
                 .count();
             
+            // Refund stats - sadece COMPLETED olan refund'lar
+            long totalRefunds = allRefunds.size();
+            double refundAmount = allRefunds.stream()
+                .filter(r -> "COMPLETED".equals(r.getStatus().name()))
+                .mapToDouble(r -> r.getAmount().doubleValue())
+                .sum();
+            
             // Dispute stats
             long totalDisputes = allDisputes.size();
             long pendingDisputes = allDisputes.stream()
-                .filter(d -> "PENDING_MERCHANT_RESPONSE".equals(d.getStatus().name()))
+                .filter(d -> "PENDING_MERCHANT_RESPONSE".equals(d.getStatus().name()) || 
+                           "OPENED".equals(d.getStatus().name()) ||
+                           "UNDER_REVIEW".equals(d.getStatus().name()))
                 .count();
             
             double disputeRate = totalPayments > 0 ? (totalDisputes * 100.0 / totalPayments) : 0;
@@ -85,15 +96,15 @@ public class MerchantDashboardController {
             stats.put("totalAmount", totalAmount);
             stats.put("successRate", successRate);
             stats.put("pendingPayments", pendingPayments);
-            stats.put("totalRefunds", 0); // TODO: implement refund service
-            stats.put("refundAmount", 0.0);
+            stats.put("totalRefunds", totalRefunds);
+            stats.put("refundAmount", refundAmount);
             stats.put("totalCustomers", totalCustomers);
             stats.put("totalDisputes", totalDisputes);
             stats.put("pendingDisputes", pendingDisputes);
             stats.put("disputeRate", disputeRate);
             
-            log.info("✅ Dashboard stats calculated for {}: {} payments, {} disputes", 
-                merchantId, totalPayments, totalDisputes);
+            log.info("✅ Dashboard stats calculated for {}: {} payments, {} refunds, {} disputes", 
+                merchantId, totalPayments, totalRefunds, totalDisputes);
             
             return ResponseEntity.ok(stats);
             

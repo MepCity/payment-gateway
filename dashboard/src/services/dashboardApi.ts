@@ -641,7 +641,7 @@ export const dashboardAPI = {
   },
 
   // Dispute operations
-  getDisputeStats: async (merchantId: string = 'MERCH001'): Promise<DisputeStats> => {
+  getDisputeStats: async (merchantId: string = 'TEST_MERCHANT'): Promise<DisputeStats> => {
     try {
       console.log('📊 Fetching dispute stats for merchant:', merchantId);
       const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes`);
@@ -654,7 +654,7 @@ export const dashboardAPI = {
   },
 
   getDisputes: async (
-    merchantId: string = 'MERCH001',
+    merchantId: string = 'TEST_MERCHANT',
     page: number = 0,
     size: number = 20,
     filters?: DisputeFilters
@@ -710,7 +710,7 @@ export const dashboardAPI = {
   },
 
   getDisputeDetail: async (
-    merchantId: string = 'MERCH001',
+    merchantId: string = 'TEST_MERCHANT',
     disputeId: string
   ): Promise<DisputeDetail> => {
     try {
@@ -725,7 +725,7 @@ export const dashboardAPI = {
   },
 
   respondToDispute: async (
-    merchantId: string = 'MERCH001',
+    merchantId: string = 'TEST_MERCHANT',
     disputeId: string,
     disputeResponse: DisputeResponse
   ): Promise<{ success: boolean; message: string; nextStep?: string }> => {
