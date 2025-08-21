@@ -76,7 +76,7 @@ public class PaymentController {
             return ResponseEntity.badRequest().body(response);
         }
     }
-*/
+
     // GET - Get payment by ID
     @GetMapping("/{id}")
     public ResponseEntity<PaymentResponse> getPaymentById(@PathVariable Long id) {
