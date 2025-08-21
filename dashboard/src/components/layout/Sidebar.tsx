@@ -237,7 +237,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
       {/* Merchant Info */}
       {open && state.user && (
-        <Box sx={{ px: 2, py: 1 }}>
+        <Box sx={{ 
+          px: 2, 
+          py: 1,
+          bgcolor: 'background.paper',
+          mx: 1,
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}>
           <Typography variant="caption" color="text.secondary">
             Merchant Account
           </Typography>
@@ -254,7 +262,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
       {/* ORCHESTRATOR Section */}
       {open && (
-        <Box sx={{ px: 2, py: 1 }}>
+        <Box sx={{ 
+          px: 2, 
+          py: 1,
+          bgcolor: 'background.paper',
+          mx: 1,
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}>
           <Typography 
             variant="overline" 
             sx={{ 

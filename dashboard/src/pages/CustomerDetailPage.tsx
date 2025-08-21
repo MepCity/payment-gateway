@@ -391,24 +391,68 @@ const CustomerDetailPage: React.FC = () => {
             Payment Intents
           </Typography>
           
-          <TableContainer component={Paper} variant="outlined">
+          <TableContainer component={Paper} variant="outlined" sx={{ 
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell>Payment Id</TableCell>
-                  <TableCell>Merchant Id</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Currency</TableCell>
-                  <TableCell>Active Attempt Id</TableCell>
-                  <TableCell>Business</TableCell>
-                  <TableCell>Actions</TableCell>
+                <TableRow sx={{ 
+                  backgroundColor: 'background.paper',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Payment Id</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Merchant Id</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Status</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Amount</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Currency</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Active Attempt Id</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Business</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paymentIntents.length > 0 ? (
                   paymentIntents.map((intent) => (
-                    <TableRow key={intent.paymentId}>
+                    <TableRow key={intent.paymentId} sx={{ 
+                      backgroundColor: 'background.paper',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider'
+                    }}>
                       <TableCell>{intent.paymentId}</TableCell>
                       <TableCell>{intent.merchantId}</TableCell>
                       <TableCell>
@@ -419,8 +463,11 @@ const CustomerDetailPage: React.FC = () => {
                       <TableCell>{intent.activeAttemptId}</TableCell>
                       <TableCell>{intent.business}</TableCell>
                       <TableCell>
-                        <Tooltip title="View Payment Intent">
-                          <IconButton size="small">
+                        <Tooltip title="View Payment Details">
+                          <IconButton 
+                            size="small"
+                            onClick={() => navigate(`/dashboard/payments/${intent.paymentId}`)}
+                          >
                             <OpenInNew fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -428,7 +475,11 @@ const CustomerDetailPage: React.FC = () => {
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
+                  <TableRow sx={{ 
+                    backgroundColor: 'background.paper',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider'
+                  }}>
                     <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No payment intents found for this customer
@@ -449,25 +500,73 @@ const CustomerDetailPage: React.FC = () => {
             Payment Attempts
           </Typography>
           
-          <TableContainer component={Paper} variant="outlined">
+          <TableContainer component={Paper} variant="outlined" sx={{ 
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell>Payment ID</TableCell>
-                  <TableCell>Merchant ID</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Currency</TableCell>
-                  <TableCell>Connector</TableCell>
-                  <TableCell>Payment Method</TableCell>
-                  <TableCell>Payment Type</TableCell>
-                  <TableCell>Actions</TableCell>
+                <TableRow sx={{ 
+                  backgroundColor: 'background.paper',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Payment ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Merchant ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Status</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Amount</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Currency</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Connector</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Payment Method</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Payment Type</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paymentAttempts.length > 0 ? (
                   paymentAttempts.map((attempt) => (
-                    <TableRow key={attempt.paymentId}>
+                    <TableRow key={attempt.paymentId} sx={{ 
+                      backgroundColor: 'background.paper',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider'
+                    }}>
                       <TableCell>{attempt.paymentId}</TableCell>
                       <TableCell>{attempt.merchantId}</TableCell>
                       <TableCell>
@@ -479,8 +578,11 @@ const CustomerDetailPage: React.FC = () => {
                       <TableCell>{attempt.paymentMethod}</TableCell>
                       <TableCell>{attempt.paymentType}</TableCell>
                       <TableCell>
-                        <Tooltip title="View Payment Attempt">
-                          <IconButton size="small">
+                        <Tooltip title="View Payment Details">
+                          <IconButton 
+                            size="small"
+                            onClick={() => navigate(`/dashboard/payments/${attempt.paymentId}`)}
+                          >
                             <OpenInNew fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -488,7 +590,11 @@ const CustomerDetailPage: React.FC = () => {
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
+                  <TableRow sx={{ 
+                    backgroundColor: 'background.paper',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider'
+                  }}>
                     <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No payment attempts found for this customer
@@ -509,24 +615,68 @@ const CustomerDetailPage: React.FC = () => {
             Refunds
           </Typography>
           
-          <TableContainer component={Paper} variant="outlined">
+          <TableContainer component={Paper} variant="outlined" sx={{ 
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell>Refund ID</TableCell>
-                  <TableCell>Payment ID</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Currency</TableCell>
-                  <TableCell>Reason</TableCell>
-                  <TableCell>Created At</TableCell>
-                  <TableCell>Actions</TableCell>
+                <TableRow sx={{ 
+                  backgroundColor: 'background.paper',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Refund ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Payment ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Status</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Amount</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Currency</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Reason</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Created At</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {refunds.length > 0 ? (
                   refunds.map((refund) => (
-                    <TableRow key={refund.refundId}>
+                    <TableRow key={refund.refundId} sx={{ 
+                      backgroundColor: 'background.paper',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider'
+                    }}>
                       <TableCell>{refund.refundId}</TableCell>
                       <TableCell>{refund.paymentId}</TableCell>
                       <TableCell>
@@ -537,8 +687,11 @@ const CustomerDetailPage: React.FC = () => {
                       <TableCell>{refund.reason}</TableCell>
                       <TableCell>{formatDate(refund.createdAt)}</TableCell>
                       <TableCell>
-                        <Tooltip title="View Refund">
-                          <IconButton size="small">
+                        <Tooltip title="View Refund Details">
+                          <IconButton 
+                            size="small"
+                            onClick={() => navigate(`/dashboard/refunds/${refund.refundId}`)}
+                          >
                             <OpenInNew fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -546,7 +699,11 @@ const CustomerDetailPage: React.FC = () => {
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
+                  <TableRow sx={{ 
+                    backgroundColor: 'background.paper',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider'
+                  }}>
                     <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No refunds found for this customer

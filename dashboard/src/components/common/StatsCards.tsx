@@ -4,6 +4,7 @@ import {
   Card,
   CardContent,
   Typography,
+  useTheme,
 } from '@mui/material';
 
 export interface StatsCard {
@@ -18,14 +19,35 @@ interface StatsCardsProps {
 }
 
 const StatsCards: React.FC<StatsCardsProps> = ({ cards }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  
   const getColorStyles = (color: StatsCard['color']) => {
     const colorMap = {
-      primary: { bg: 'rgba(25, 118, 210, 0.1)', text: '#1976d2' },
-      secondary: { bg: 'rgba(156, 39, 176, 0.1)', text: '#9c27b0' },
-      success: { bg: 'rgba(46, 125, 50, 0.1)', text: '#2e7d32' },
-      warning: { bg: 'rgba(237, 108, 2, 0.1)', text: '#ed6c02' },
-      error: { bg: 'rgba(211, 47, 47, 0.1)', text: '#d32f2f' },
-      info: { bg: 'rgba(2, 136, 209, 0.1)', text: '#0288d1' },
+      primary: { 
+        bg: isDark ? 'rgba(96, 165, 250, 0.15)' : 'rgba(25, 118, 210, 0.1)', 
+        text: isDark ? '#60a5fa' : '#1976d2' 
+      },
+      secondary: { 
+        bg: isDark ? 'rgba(147, 197, 253, 0.15)' : 'rgba(156, 39, 176, 0.1)', 
+        text: isDark ? '#93c5fd' : '#9c27b0' 
+      },
+      success: { 
+        bg: isDark ? 'rgba(52, 211, 153, 0.15)' : 'rgba(46, 125, 50, 0.1)', 
+        text: isDark ? '#34d399' : '#2e7d32' 
+      },
+      warning: { 
+        bg: isDark ? 'rgba(251, 191, 36, 0.15)' : 'rgba(237, 108, 2, 0.1)', 
+        text: isDark ? '#fbbf24' : '#ed6c02' 
+      },
+      error: { 
+        bg: isDark ? 'rgba(248, 113, 113, 0.15)' : 'rgba(211, 47, 47, 0.1)', 
+        text: isDark ? '#f87171' : '#d32f2f' 
+      },
+      info: { 
+        bg: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(2, 136, 209, 0.1)', 
+        text: isDark ? '#3b82f6' : '#0288d1' 
+      },
     };
     return colorMap[color];
   };
@@ -46,8 +68,9 @@ const StatsCards: React.FC<StatsCardsProps> = ({ cards }) => {
           <Card 
             key={index} 
             sx={{ 
-              background: colorStyle.bg,
-              border: `1px solid ${colorStyle.text}30`
+              background: isDark ? 'rgba(30, 41, 59, 0.8)' : colorStyle.bg,
+              border: `1px solid ${colorStyle.text}30`,
+              backdropFilter: isDark ? 'blur(10px)' : 'none',
             }}
           >
             <CardContent>
