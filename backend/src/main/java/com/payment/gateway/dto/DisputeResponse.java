@@ -33,6 +33,22 @@ public class DisputeResponse {
     private LocalDateTime resolutionDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // Yeni alanlar - Bank Dispute Management
+    private String bankDisputeId;
+    private String bankNotificationData;
+    private LocalDateTime merchantResponseDeadline;
+    private String merchantResponse;
+    private String merchantDefenseEvidence;
+    private LocalDateTime merchantResponseDate;
+    private String adminEvaluation;
+    private String adminDecision;
+    private String bankFinalDecision;
+    private BigDecimal chargebackAmount;
+    private String bankName;
+    private LocalDateTime adminEvaluationDeadline;
+    private String adminNotes;
+    
     private String message;
     private boolean success;
 }

@@ -27,6 +27,10 @@ import org.springframework.web.client.RestTemplate;
 public class BankWebhookController {
     
     private final RefundService refundService;
+    private final DisputeService disputeService;
+    private final PayoutService payoutService;
+    private final MerchantService merchantService;
+    private final RestTemplate restTemplate;
 
     // Webhook helper methods
     private void handle3DSecureResult(String orderId, Map<String, Object> data) {
