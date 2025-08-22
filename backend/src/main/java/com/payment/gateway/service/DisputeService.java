@@ -244,10 +244,66 @@ public class DisputeService {
         }
     }
     
+    /**
+     * Dispute'ı dispute ID ile bul ve güncelle (merchant validation ile)
+     */
+    public DisputeResponse updateDisputeByDisputeId(String disputeId, DisputeRequest request, String merchantId) {
+        try {
+            // Dispute'ı dispute ID ile bul
+            Optional<Dispute> disputeOpt = disputeRepository.findByDisputeId(disputeId);
+            if (disputeOpt.isEmpty()) {
+                log.warn("🚫 Dispute not found with dispute ID: {}", disputeId);
+                return createErrorResponse("Dispute not found with dispute ID: " + disputeId);
+            }
+            
+            Dispute dispute = disputeOpt.get();
+            
+            // Merchant ID kontrolü - sadece kendi dispute'ını güncelleyebilir
+            if (!dispute.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to update dispute {} owned by {}", 
+                    merchantId, disputeId, dispute.getMerchantId());
+                return createErrorResponse("Access denied. You can only update your own disputes");
+            }
+            
+            // Update dispute fields
+            dispute.setAmount(request.getAmount());
+            dispute.setCurrency(request.getCurrency());
+            dispute.setReason(request.getReason());
+            dispute.setDescription(request.getDescription());
+            dispute.setEvidence(request.getEvidence());
+            dispute.setUpdatedAt(LocalDateTime.now());
+            
+            Dispute updatedDispute = disputeRepository.save(dispute);
+            
+            // Audit logging
+            auditService.createEvent()
+                .eventType("DISPUTE_UPDATED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("merchant")
+                .action("UPDATE")
+                .resourceType("DISPUTE")
+                .resourceId(disputeId)
+                .oldValues(dispute)
+                .newValues(updatedDispute)
+                .additionalData("merchantId", merchantId)
+                .complianceTag("PCI_DSS")
+                .log();
+            
+            log.info("✅ Dispute updated successfully with dispute ID: {} by merchant: {}", disputeId, merchantId);
+            return createDisputeResponse(updatedDispute, "Dispute updated successfully", true);
+            
+        } catch (Exception e) {
+            log.error("❌ Error updating dispute with dispute ID {}: {}", disputeId, e.getMessage(), e);
+            return createErrorResponse("Failed to update dispute: " + e.getMessage());
+        }
+    }
+    
     public DisputeResponse updateDisputeStatus(Long id, Dispute.DisputeStatus newStatus) {
         Optional<Dispute> disputeOpt = disputeRepository.findById(id);
         if (disputeOpt.isPresent()) {
             Dispute dispute = disputeOpt.get();
+            log.info("🔄 Updating dispute status from {} to {} for ID: {}", dispute.getStatus(), newStatus, id);
+            
             dispute.setStatus(newStatus);
             
             // Set resolution date if dispute is resolved
@@ -260,8 +316,13 @@ public class DisputeService {
             dispute.setGatewayResponse("Status updated to: " + newStatus);
             Dispute updatedDispute = disputeRepository.save(dispute);
             
-            log.info("Dispute status updated to {} for ID: {}", newStatus, id);
-            return createDisputeResponse(updatedDispute, "Dispute status updated successfully", true);
+            log.info("✅ Dispute status updated successfully to {} for ID: {}", updatedDispute.getStatus(), id);
+            
+            // Create response and log the status
+            DisputeResponse response = createDisputeResponse(updatedDispute, "Dispute status updated successfully", true);
+            log.info("📤 Response status: {}, Dispute status: {}", response.getStatus(), updatedDispute.getStatus());
+            
+            return response;
         } else {
             return createErrorResponse("Dispute not found with ID: " + id);
         }
@@ -405,6 +466,80 @@ public class DisputeService {
             return createDisputeResponse(updatedDispute, "Evidence added successfully", true);
         } else {
             return createErrorResponse("Dispute not found with ID: " + id);
+        }
+    }
+
+    /**
+     * Dispute'a kanıt ekle (Dispute ID ile - merchant validation ile)
+     */
+    public DisputeResponse addEvidenceToDisputeByDisputeId(String disputeId, String evidence, String additionalNotes, String merchantId) {
+        try {
+            Optional<Dispute> disputeOpt = disputeRepository.findByDisputeId(disputeId);
+            if (disputeOpt.isEmpty()) {
+                log.warn("🚫 Dispute not found with dispute ID: {}", disputeId);
+                return createErrorResponse("Dispute not found with dispute ID: " + disputeId);
+            }
+
+            Dispute dispute = disputeOpt.get();
+
+            // Merchant ID kontrolü - sadece kendi dispute'una kanıt ekleyebilir
+            if (!dispute.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to add evidence to dispute {} owned by {}",
+                    merchantId, disputeId, dispute.getMerchantId());
+                return createErrorResponse("Access denied. You can only add evidence to your own disputes");
+            }
+
+            // Mevcut kanıtı güncelle
+            String currentEvidence = dispute.getEvidence();
+            String updatedEvidence = currentEvidence != null ? 
+                currentEvidence + "\n\n--- YENİ KANIT ---\n" + evidence : evidence;
+            
+            dispute.setEvidence(updatedEvidence);
+            
+            // Ek notlar varsa ekle
+            if (additionalNotes != null && !additionalNotes.trim().isEmpty()) {
+                String currentNotes = dispute.getDescription();
+                String updatedNotes = currentNotes != null ? 
+                    currentNotes + "\n\nEk Notlar: " + additionalNotes : additionalNotes;
+                dispute.setDescription(updatedNotes);
+            }
+            
+            // Kanıt eklendikten sonra statüyü UNDER_REVIEW olarak güncelle
+            // Eğer dispute zaten RESOLVED, WON, LOST veya CLOSED değilse
+            if (dispute.getStatus() != Dispute.DisputeStatus.RESOLVED &&
+                dispute.getStatus() != Dispute.DisputeStatus.WON &&
+                dispute.getStatus() != Dispute.DisputeStatus.LOST &&
+                dispute.getStatus() != Dispute.DisputeStatus.CLOSED) {
+                dispute.setStatus(Dispute.DisputeStatus.UNDER_REVIEW);
+                log.info("🔄 Dispute status updated to UNDER_REVIEW after evidence submission for dispute ID: {}", disputeId);
+            }
+            
+            dispute.setUpdatedAt(LocalDateTime.now());
+
+            Dispute updatedDispute = disputeRepository.save(dispute);
+
+            // Audit logging
+            auditService.createEvent()
+                .eventType("DISPUTE_EVIDENCE_ADDED")
+                .severity(AuditLog.Severity.MEDIUM)
+                .actor("merchant")
+                .action("ADD_EVIDENCE")
+                .resourceType("DISPUTE")
+                .resourceId(disputeId)
+                .oldValues(dispute)
+                .newValues(updatedDispute)
+                .additionalData("merchantId", merchantId)
+                .additionalData("evidenceLength", String.valueOf(evidence.length()))
+                .additionalData("additionalNotes", additionalNotes)
+                .complianceTag("PCI_DSS")
+                .log();
+
+            log.info("✅ Evidence added successfully to dispute with dispute ID: {} by merchant: {}", disputeId, merchantId);
+            return createDisputeResponse(updatedDispute, "Evidence added successfully", true);
+
+        } catch (Exception e) {
+            log.error("❌ Error adding evidence to dispute with dispute ID {}: {}", disputeId, e.getMessage(), e);
+            return createErrorResponse("Failed to add evidence: " + e.getMessage());
         }
     }
     

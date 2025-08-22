@@ -352,6 +352,43 @@ public class DisputeController {
         }
     }
 
+    // POST - Add evidence to dispute by dispute ID
+    @PostMapping("/dispute-id/{disputeId}/evidence")
+    public ResponseEntity<DisputeResponse> addEvidenceToDisputeByDisputeId(
+            @PathVariable String disputeId,
+            @RequestBody Map<String, String> evidenceRequest,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+        log.info("Adding evidence to dispute with dispute ID: {}", disputeId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile evidence ekleme denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String evidence = evidenceRequest.get("evidence");
+        String additionalNotes = evidenceRequest.get("additionalNotes");
+
+        if (evidence == null || evidence.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(createErrorResponse("Evidence is required"));
+        }
+
+        // Dispute'a kanıt ekle
+        DisputeResponse response = disputeService.addEvidenceToDisputeByDisputeId(disputeId, evidence, additionalNotes, merchantId);
+
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
     /**
      * API key'den merchant ID'yi çıkart
      */
@@ -380,5 +417,12 @@ public class DisputeController {
         return merchantAuthService.getMerchantByApiKey(apiKey)
                 .map(merchant -> merchant.getMerchantId())
                 .orElse(null);
+    }
+
+    private DisputeResponse createErrorResponse(String message) {
+        DisputeResponse errorResponse = new DisputeResponse();
+        errorResponse.setSuccess(false);
+        errorResponse.setMessage(message);
+        return errorResponse;
     }
 }
