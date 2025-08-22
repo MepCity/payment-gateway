@@ -99,15 +99,21 @@ const CustomerDetailPage: React.FC = () => {
   const loadPaymentData = async (customer: CustomerDetail, customerPayments: any[]) => {
     try {
       console.log('Loading payment data for customer:', customer);
-      console.log('Customer payments:', customerPayments);
       
-      console.log('Filtered payments for customer:', customerPayments);
+      // Backend'den güncel customer payments verilerini al
+      const backendPayments = await dashboardAPI.getCustomerPayments(customerId!);
+      console.log('Backend customer payments:', backendPayments);
+      
+      // Backend'den gelen veri varsa onu kullan, yoksa localStorage'dan
+      const paymentsToUse = backendPayments.length > 0 ? backendPayments : customerPayments;
+      
+      console.log('Using payments:', paymentsToUse);
       
       // Set payment intents (all payments for this customer)
-      setPaymentIntents(customerPayments.map((payment: any) => ({
+      setPaymentIntents(paymentsToUse.map((payment: any) => ({
         paymentId: payment.paymentId || payment.id,
         merchantId: payment.merchantId || 'TEST_MERCHANT',
-        status: payment.status || 'COMPLETED',
+        status: payment.status || 'PROCESSING', // Default status'u PROCESSING yap
         amount: payment.amount || 0,
         currency: payment.currency || 'USD',
         activeAttemptId: `pay_${Date.now()}_1`,
@@ -115,10 +121,10 @@ const CustomerDetailPage: React.FC = () => {
       })));
       
       // Set payment attempts (successful payments)
-      setPaymentAttempts(customerPayments.map((payment: any) => ({
+      setPaymentAttempts(paymentsToUse.map((payment: any) => ({
         paymentId: payment.paymentId || payment.id,
         merchantId: payment.merchantId || 'TEST_MERCHANT',
-        status: payment.status || 'COMPLETED',
+        status: payment.status || 'PROCESSING', // Default status'u PROCESSING yap
         amount: payment.amount || 0,
         currency: payment.currency || 'USD',
         connector: 'fauxpay',
@@ -133,7 +139,7 @@ const CustomerDetailPage: React.FC = () => {
         
         // Filter refunds that belong to this customer's payments
         const customerRefunds = allRefunds.filter((refund: RefundListItem) => {
-          return customerPayments.some((payment: any) => 
+          return paymentsToUse.some((payment: any) => 
             payment.paymentId === refund.paymentId || payment.id === refund.paymentId
           );
         });
@@ -160,9 +166,15 @@ const CustomerDetailPage: React.FC = () => {
     if (!customerId) return;
     
     try {
-      // TODO: Implement sync
       console.log('Syncing customer:', customerId);
-      loadCustomerDetail();
+      
+      // Backend'den güncel veri al
+      await loadCustomerDetail();
+      
+      // Payment data'yı da yeniden yükle
+      if (customer) {
+        await loadPaymentData(customer, []);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to sync customer');
     }

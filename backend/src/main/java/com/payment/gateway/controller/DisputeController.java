@@ -159,7 +159,9 @@ public class DisputeController {
     
     // GET - Get disputes by merchant ID (for admin use, requires merchant authentication)
     @GetMapping("/merchant/{merchantId}")
-    public ResponseEntity<List<DisputeResponse>> getDisputesByMerchantId(@PathVariable String merchantId) {
+    public ResponseEntity<List<DisputeResponse>> getDisputesByMerchantId(
+            @PathVariable String merchantId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving disputes for merchant: {}", merchantId);
 
         // API Key kontrolü
@@ -188,9 +190,11 @@ public class DisputeController {
         return ResponseEntity.ok(disputes);
     }
     
-    // GET - Get disputes by status
+    // GET - Get disputes by status (merchant-specific)
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<DisputeResponse>> getDisputesByStatus(@PathVariable Dispute.DisputeStatus status) {
+    public ResponseEntity<List<DisputeResponse>> getDisputesByStatus(
+            @PathVariable Dispute.DisputeStatus status,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving disputes with status: {}", status);
 
         // API Key kontrolü
@@ -209,9 +213,11 @@ public class DisputeController {
         return ResponseEntity.ok(disputes);
     }
     
-    // GET - Get disputes by reason
+    // GET - Get disputes by reason (merchant-specific)
     @GetMapping("/reason/{reason}")
-    public ResponseEntity<List<DisputeResponse>> getDisputesByReason(@PathVariable Dispute.DisputeReason reason) {
+    public ResponseEntity<List<DisputeResponse>> getDisputesByReason(
+            @PathVariable Dispute.DisputeReason reason,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving disputes with reason: {}", reason);
 
         // API Key kontrolü
@@ -226,7 +232,7 @@ public class DisputeController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        List<DisputeResponse> disputes = disputeService.getDisputesByReason(reason);
+        List<DisputeResponse> disputes = disputeService.getDisputesForMerchantByReason(merchantId, reason);
         return ResponseEntity.ok(disputes);
     }
     
@@ -345,7 +351,7 @@ public class DisputeController {
         }
 
         // Test mode - her test API key'ini farklı merchant'a eşle
-        if (apiKey.startsWith("pk_test_")) {
+        if (apiKey.startsWith("pk_test_") || apiKey.equals("pk_merch001_live_abc123")) {
             switch (apiKey) {
                 case "pk_test_merchant1":
                     return "TEST_MERCHANT";
@@ -353,6 +359,8 @@ public class DisputeController {
                     return "TEST_MERCHANT_2";
                 case "pk_test_merchant3":
                     return "TEST_MERCHANT_3";
+                case "pk_merch001_live_abc123":
+                    return "MERCH001"; // Bu API key için MERCH001 döndür
                 default:
                     return "TEST_MERCHANT"; // Default test merchant
             }

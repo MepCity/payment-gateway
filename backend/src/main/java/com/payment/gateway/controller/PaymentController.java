@@ -420,14 +420,16 @@ public class PaymentController {
             if (!paymentOpt.isPresent()) {
                 Map<String, Object> errorResult = new HashMap<>();
                 errorResult.put("success", false);
-                errorResult.put("message", "Payment not found with ID: " + transactionId);
+                errorResult.put("message", "Payment not found with transactionId: " + transactionId);
                 return ResponseEntity.badRequest().body(errorResult);
             }
             
             Payment payment = paymentOpt.get();
             
-            // Webhook data formatı: paymentId|status|message
-            String webhookData = transactionId + "|" + status + "|" + bankType + " payment processed successfully";
+            // Webhook data formatı: paymentId|status|message (paymentId kullan, transactionId değil!)
+            String webhookData = payment.getPaymentId() + "|" + status + "|" + bankType + " payment processed successfully";
+            
+            log.info("Processing webhook for payment: {} with data: {}", payment.getPaymentId(), webhookData);
             
             // PaymentService'deki webhook processing metodunu çağır
             paymentService.processBankPaymentWebhook(bankType, webhookData);
@@ -440,6 +442,8 @@ public class PaymentController {
             result.put("status", status);
             result.put("bankType", bankType);
             result.put("webhookData", webhookData);
+            result.put("oldStatus", payment.getStatus());
+            result.put("newStatus", status);
             
             return ResponseEntity.ok(result);
             
@@ -499,7 +503,7 @@ public class PaymentController {
         }
         
         // Test mode - her test API key'ini farklı merchant'a eşle
-        if (apiKey.startsWith("pk_test_")) {
+        if (apiKey.startsWith("pk_test_") || apiKey.equals("pk_merch001_live_abc123")) {
             switch (apiKey) {
                 case "pk_test_merchant1":
                     return "TEST_MERCHANT";
@@ -507,6 +511,8 @@ public class PaymentController {
                     return "TEST_MERCHANT_2";
                 case "pk_test_merchant3":
                     return "TEST_MERCHANT_3";
+                case "pk_merch001_live_abc123":
+                    return "MERCH001"; // Bu API key için MERCH001 döndür
                 default:
                     return "TEST_MERCHANT"; // Default test merchant
             }

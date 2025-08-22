@@ -878,13 +878,21 @@ public class PaymentService {
                 String status = parts[1];
                 String message = parts[2];
                 
+                log.info("Parsed webhook data - PaymentId: {}, Status: {}, Message: {}", paymentId, status, message);
+                
                 // Payment ID ile payment'ı bul
                 Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
                 if (paymentOpt.isPresent()) {
                     Payment payment = paymentOpt.get();
                     
+                    log.info("Found payment: {} with current status: {}", payment.getPaymentId(), payment.getStatus());
+                    
                     // Banka'dan gelen status'a göre güncelle
                     Payment.PaymentStatus newStatus = mapBankStatusToPaymentStatus(status);
+                    Payment.PaymentStatus oldStatus = payment.getStatus();
+                    
+                    log.info("Updating payment status from {} to {} via {} webhook", oldStatus, newStatus, bankType);
+                    
                     payment.setStatus(newStatus);
                     payment.setGatewayResponse(bankType + " webhook: " + message);
                     payment.setUpdatedAt(LocalDateTime.now());
@@ -892,9 +900,11 @@ public class PaymentService {
                     // Eğer payment tamamlandıysa tarih ekle
                     if (newStatus == Payment.PaymentStatus.COMPLETED) {
                         payment.setCompletedAt(LocalDateTime.now());
+                        log.info("Payment {} completed at: {}", payment.getPaymentId(), payment.getCompletedAt());
                     }
                     
                     paymentRepository.save(payment);
+                    log.info("Payment {} status updated successfully in database", payment.getPaymentId());
                     
                     // Audit logging
                     auditService.logEvent(
@@ -906,13 +916,14 @@ public class PaymentService {
                             .resourceType("PAYMENT")
                             .resourceId(payment.getPaymentId())
                             .additionalData("bankType", bankType)
+                            .additionalData("oldStatus", oldStatus.toString())
                             .additionalData("newStatus", newStatus.toString())
                             .additionalData("webhookMessage", message)
                             .complianceTag("PCI_DSS")
                     );
                     
-                    log.info("Payment status updated via {} webhook to {} for payment ID: {}", 
-                            bankType, newStatus, payment.getPaymentId());
+                    log.info("Payment status updated via {} webhook from {} to {} for payment ID: {}", 
+                            bankType, oldStatus, newStatus, payment.getPaymentId());
                     
                     // Merchant'a webhook gönder (payment durumu değişti)
                     if (newStatus == Payment.PaymentStatus.COMPLETED) {
@@ -925,7 +936,7 @@ public class PaymentService {
                     log.warn("Payment not found for payment ID: {}", paymentId);
                 }
             } else {
-                log.error("Invalid webhook data format: {}", webhookData);
+                log.error("Invalid webhook data format: {} (expected: paymentId|status|message)", webhookData);
             }
             
         } catch (Exception e) {
