@@ -151,7 +151,7 @@ public class PaymentController {
         if (merchantId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        
+
         PaymentResponse response = paymentService.getPaymentByPaymentIdForMerchant(paymentId, merchantId);
         
         if (response.isSuccess()) {
@@ -428,7 +428,7 @@ public class PaymentController {
             
             // Webhook data formatı: paymentId|status|message (paymentId kullan, transactionId değil!)
             String webhookData = payment.getPaymentId() + "|" + status + "|" + bankType + " payment processed successfully";
-            
+
             log.info("Processing webhook for payment: {} with data: {}", payment.getPaymentId(), webhookData);
             
             // PaymentService'deki webhook processing metodunu çağır
@@ -444,7 +444,7 @@ public class PaymentController {
             result.put("webhookData", webhookData);
             result.put("oldStatus", payment.getStatus());
             result.put("newStatus", status);
-            
+
             return ResponseEntity.ok(result);
             
         } catch (Exception e) {
@@ -501,7 +501,7 @@ public class PaymentController {
         if (apiKey == null) {
             return null;
         }
-        
+
         // Test mode - her test API key'ini farklı merchant'a eşle
         if (apiKey.startsWith("pk_test_") || apiKey.equals("pk_merch001_live_abc123")) {
             switch (apiKey) {
@@ -517,7 +517,7 @@ public class PaymentController {
                     return "TEST_MERCHANT"; // Default test merchant
             }
         }
-        
+
         // Production'da merchant'ı API key ile bulup merchant ID'yi döneriz
         return merchantAuthService.getMerchantByApiKey(apiKey)
                 .map(merchant -> merchant.getMerchantId())

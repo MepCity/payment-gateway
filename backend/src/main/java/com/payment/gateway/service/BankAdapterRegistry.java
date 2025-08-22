@@ -1,6 +1,10 @@
 package com.payment.gateway.service;
 
 import com.payment.gateway.adapter.BankAdapter;
+import com.payment.gateway.adapter.impl.GarantiBankAdapter;
+import com.payment.gateway.adapter.impl.IsBankAdapter;
+import com.payment.gateway.adapter.impl.YapiKrediBankAdapter;
+import com.payment.gateway.util.CardUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -46,19 +50,19 @@ public class BankAdapterRegistry {
             return Optional.empty();
         }
         
-        log.debug("Looking for adapter for card: {}", maskCardNumber(cardNumber));
+        log.debug("Looking for adapter for card: {}", CardUtils.maskCardNumber(cardNumber));
         
         for (BankAdapter adapter : allAdapters) {
             if (adapter.isConfigured() && adapter.supportsBin(cardNumber)) {
                 log.info("Found adapter for card {}: {} ({})", 
-                        maskCardNumber(cardNumber), 
+                        CardUtils.maskCardNumber(cardNumber),
                         adapter.getBankName(),
                         adapter.getRequestFormat());
                 return Optional.of(adapter);
             }
         }
         
-        log.warn("No adapter found for card: {}", maskCardNumber(cardNumber));
+        log.warn("No adapter found for card: {}", CardUtils.maskCardNumber(cardNumber));
         return Optional.empty();
     }
     
@@ -139,15 +143,7 @@ public class BankAdapterRegistry {
                 .toList();
     }
     
-    /**
-     * Kart numarasını maskele
-     */
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 8) {
-            return "****";
-        }
-        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
-    }
+
     
     /**
      * Adapter sağlık kontrolü

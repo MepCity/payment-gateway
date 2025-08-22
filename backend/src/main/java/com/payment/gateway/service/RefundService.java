@@ -114,22 +114,22 @@ public class RefundService {
         try {
             // Payment'ın bu merchant'a ait olduğunu doğrula
             var paymentResponse = paymentService.getPaymentByPaymentIdForMerchant(request.getPaymentId(), merchantId);
-            
+
             if (!paymentResponse.isSuccess()) {
-                log.warn("🚫 Merchant {} tried to create refund for payment {} not owned by them", 
+                log.warn("🚫 Merchant {} tried to create refund for payment {} not owned by them",
                     merchantId, request.getPaymentId());
                 return createErrorResponse("Payment not found or access denied");
             }
 
             // Normal refund oluşturma işlemini devam ettir
             return createRefund(request);
-            
+
         } catch (Exception e) {
             log.error("Error creating refund for merchant {}: {}", merchantId, e.getMessage(), e);
             return createErrorResponse("Failed to create refund: " + e.getMessage());
         }
     }
-    
+
     public RefundResponse getRefundById(Long id) {
         Optional<Refund> refund = refundRepository.findById(id);
         if (refund.isPresent()) {
@@ -157,7 +157,7 @@ public class RefundService {
             return createErrorResponse("Refund not found with ID: " + id);
         }
     }
-    
+
     // Merchant-aware refund methods
     public RefundResponse getRefundByRefundIdForMerchant(String refundId, String merchantId) {
         Optional<Refund> refund = refundRepository.findByRefundIdAndMerchantId(refundId, merchantId);
@@ -167,7 +167,7 @@ public class RefundService {
             return createErrorResponse("Refund not found with refund ID: " + refundId + " for merchant: " + merchantId);
         }
     }
-    
+
     public RefundResponse getRefundByPaymentIdForMerchant(String paymentId, String merchantId) {
         Optional<Refund> refund = refundRepository.findByPaymentIdAndMerchantId(paymentId, merchantId);
         if (refund.isPresent()) {
@@ -176,35 +176,35 @@ public class RefundService {
             return createErrorResponse("Refund not found with payment ID: " + paymentId + " for merchant: " + merchantId);
         }
     }
-    
+
     public List<RefundResponse> getRefundsByCustomerIdForMerchant(String customerId, String merchantId) {
         List<Refund> refunds = refundRepository.findByCustomerIdAndMerchantId(customerId, merchantId);
         return refunds.stream()
                 .map(refund -> createRefundResponse(refund, null, true))
                 .collect(Collectors.toList());
     }
-    
+
     public List<RefundResponse> getRefundsByStatusForMerchant(Refund.RefundStatus status, String merchantId) {
         List<Refund> refunds = refundRepository.findByStatusAndMerchantId(status, merchantId);
         return refunds.stream()
                 .map(refund -> createRefundResponse(refund, null, true))
                 .collect(Collectors.toList());
     }
-    
+
     public List<RefundResponse> getRefundsByReasonForMerchant(Refund.RefundReason reason, String merchantId) {
         List<Refund> refunds = refundRepository.findByReasonAndMerchantId(reason, merchantId);
         return refunds.stream()
                 .map(refund -> createRefundResponse(refund, null, true))
                 .collect(Collectors.toList());
     }
-    
+
     public List<RefundResponse> getRefundsByTransactionIdForMerchant(String transactionId, String merchantId) {
         List<Refund> refunds = refundRepository.findByTransactionIdAndMerchantId(transactionId, merchantId);
         return refunds.stream()
                 .map(refund -> createRefundResponse(refund, null, true))
                 .collect(Collectors.toList());
     }
-    
+
     public RefundResponse getRefundByRefundId(String refundId) {
         Optional<Refund> refund = refundRepository.findByRefundId(refundId);
         if (refund.isPresent()) {
@@ -541,7 +541,7 @@ public class RefundService {
             Thread.sleep(200); // Simulate API call delay
             
             // Simulate success/failure based on amount
-            if (refund.getAmount().compareTo(java.math.BigDecimal.valueOf(5000)) > 0) {
+            if (refund.getAmount().compareTo(java.math.BigDecimal.valueOf(99000)) > 0) {
                 return "FAILED: Amount exceeds limit";
             } else {
                 return "SUCCESS: Refund request accepted";

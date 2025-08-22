@@ -6,6 +6,7 @@ import com.payment.gateway.model.Payment;
 import com.payment.gateway.model.RiskAssessment;
 import com.payment.gateway.repository.PaymentRepository;
 import com.payment.gateway.model.AuditLog;
+import com.payment.gateway.util.CardUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,7 +44,7 @@ public class PaymentService {
                 .additionalData("amount", request.getAmount())
                 .additionalData("currency", request.getCurrency())
                 .additionalData("paymentMethod", request.getPaymentMethod())
-                .additionalData("cardLastFour", extractCardLastFour(request.getCardNumber()))
+                .additionalData("cardLastFour", CardUtils.extractCardLastFour(request.getCardNumber()))
                 .complianceTag("PCI_DSS")
                 .complianceTag("KVKK")
                 .complianceTag("GDPR")
@@ -64,11 +65,11 @@ public class PaymentService {
             payment.setCurrency(request.getCurrency());
             payment.setStatus(Payment.PaymentStatus.PENDING);
             payment.setPaymentMethod(request.getPaymentMethod());
-            payment.setCardNumber(maskCardNumber(request.getCardNumber()));
+            payment.setCardNumber(CardUtils.maskCardNumber(request.getCardNumber()));
             payment.setCardHolderName(request.getCardHolderName());
-            payment.setCardBrand(detectCardBrand(request.getCardNumber()));
-            payment.setCardBin(extractCardBin(request.getCardNumber()));
-            payment.setCardLastFour(extractCardLastFour(request.getCardNumber()));
+            payment.setCardBrand(CardUtils.detectCardBrand(request.getCardNumber()));
+            payment.setCardBin(CardUtils.extractCardBin(request.getCardNumber()));
+            payment.setCardLastFour(CardUtils.extractCardLastFour(request.getCardNumber()));
             payment.setExpiryDate(request.getExpiryDate());
             payment.setDescription(request.getDescription());
             payment.setCreatedAt(LocalDateTime.now());
@@ -216,7 +217,7 @@ public class PaymentService {
             Payment p = payment.get();
             // Merchant ID kontrolü
             if (!p.getMerchantId().equals(merchantId)) {
-                log.warn("🚫 Merchant {} tried to access payment {} owned by {}", 
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}",
                     merchantId, id, p.getMerchantId());
                 return createErrorResponse("Payment not found or access denied");
             }
@@ -225,7 +226,7 @@ public class PaymentService {
             return createErrorResponse("Payment not found with ID: " + id);
         }
     }
-    
+
     public PaymentResponse getPaymentByTransactionId(String transactionId) {
         Optional<Payment> payment = paymentRepository.findByTransactionId(transactionId);
         if (payment.isPresent()) {
@@ -244,7 +245,7 @@ public class PaymentService {
             Payment p = payment.get();
             // Merchant ID kontrolü
             if (!p.getMerchantId().equals(merchantId)) {
-                log.warn("🚫 Merchant {} tried to access payment {} owned by {}", 
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}",
                     merchantId, transactionId, p.getMerchantId());
                 return createErrorResponse("Payment not found or access denied");
             }
@@ -253,7 +254,7 @@ public class PaymentService {
             return createErrorResponse("Payment not found with transaction ID: " + transactionId);
         }
     }
-    
+
     public PaymentResponse getPaymentByPaymentId(String paymentId) {
         Optional<Payment> payment = paymentRepository.findByPaymentId(paymentId);
         if (payment.isPresent()) {
@@ -262,7 +263,7 @@ public class PaymentService {
             return createErrorResponse("Payment not found with payment ID: " + paymentId);
         }
     }
-    
+
     /**
      * Merchant ID ile kısıtlanmış payment ID ile payment arama
      */
@@ -272,7 +273,7 @@ public class PaymentService {
             Payment p = payment.get();
             // Merchant ID kontrolü
             if (!p.getMerchantId().equals(merchantId)) {
-                log.warn("🚫 Merchant {} tried to access payment {} owned by {}", 
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}",
                     merchantId, paymentId, p.getMerchantId());
                 return createErrorResponse("Payment not found or access denied");
             }
@@ -281,7 +282,7 @@ public class PaymentService {
             return createErrorResponse("Payment not found with payment ID: " + paymentId);
         }
     }
-    
+
     public List<PaymentResponse> getAllPayments() {
         List<Payment> payments = paymentRepository.findAll();
         return payments.stream()
@@ -302,7 +303,7 @@ public class PaymentService {
                 .map(payment -> createPaymentResponse(payment, null, true))
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Merchant ID ile kısıtlanmış customer payment arama
      */
@@ -313,7 +314,7 @@ public class PaymentService {
                 .map(payment -> createPaymentResponse(payment, null, true))
                 .collect(Collectors.toList());
     }
-    
+
     public List<PaymentResponse> getPaymentsByStatus(Payment.PaymentStatus status) {
         List<Payment> payments = paymentRepository.findByStatus(status);
         return payments.stream()
@@ -377,8 +378,42 @@ public class PaymentService {
             return createErrorResponse("Payment not found with ID: " + id);
         }
     }
-    /* */
 
+    public PaymentResponse refundPayment(Long id) {
+        Optional<Payment> paymentOpt = paymentRepository.findById(id);
+        if (paymentOpt.isPresent()) {
+            Payment payment = paymentOpt.get();
+
+            if (payment.getStatus() == Payment.PaymentStatus.COMPLETED) {
+                payment.setStatus(Payment.PaymentStatus.REFUNDED);
+                payment.setGatewayResponse("Payment refunded");
+                Payment updatedPayment = paymentRepository.save(payment);
+
+                // Audit log - Payment refund
+                auditService.logEvent(
+                    auditService.createEvent()
+                        .eventType("PAYMENT")
+                        .action("REFUND")
+                        .actor("api-user")
+                        .resourceType("Payment")
+                        .resourceId(payment.getPaymentId())
+                        .additionalData("transactionId", payment.getTransactionId())
+                        .additionalData("amount", payment.getAmount())
+                        .additionalData("currency", payment.getCurrency())
+                        .additionalData("refundReason", "Manual refund request")
+                        .complianceTag("PCI_DSS")
+                        .complianceTag("GDPR")
+                );
+
+                log.info("Payment refunded successfully with ID: {}", id);
+                return createPaymentResponse(updatedPayment, "Payment refunded successfully", true);
+            } else {
+                return createErrorResponse("Cannot refund payment with status: " + payment.getStatus());
+            }
+        } else {
+            return createErrorResponse("Payment not found with ID: " + id);
+        }
+    }
     
     /**
      * 3D Secure sürecini tamamlar
@@ -466,102 +501,7 @@ public class PaymentService {
     private String generatePaymentId() {
         return "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
-    
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 10) {
-            return cardNumber;
-        }
-        
-        // BIN (first 6 digits) + masked middle + last 4 digits format
-        // Example: 4111111111111111 -> 411111******1111
-        String bin = cardNumber.substring(0, 6);
-        String lastFour = cardNumber.substring(cardNumber.length() - 4);
-        int middleLength = cardNumber.length() - 10; // Total - 6 (BIN) - 4 (last four)
-        String maskedMiddle = "*".repeat(middleLength);
-        
-        return bin + maskedMiddle + lastFour;
-    }
-    
-    private String detectCardBrand(String cardNumber) {
-        if (cardNumber == null || cardNumber.isEmpty()) {
-            return "UNKNOWN";
-        }
-        
-        // Remove any non-digit characters
-        String cleanCardNumber = cardNumber.replaceAll("\\D", "");
-        
-        if (cleanCardNumber.length() < 4) {
-            return "UNKNOWN";
-        }
-        
-        // Get the first few digits to determine the brand
-        String prefix = cleanCardNumber.substring(0, Math.min(6, cleanCardNumber.length()));
-        int firstDigit = Integer.parseInt(prefix.substring(0, 1));
-        int firstTwoDigits = Integer.parseInt(prefix.substring(0, 2));
-        int firstThreeDigits = prefix.length() >= 3 ? Integer.parseInt(prefix.substring(0, 3)) : 0;
-        int firstFourDigits = prefix.length() >= 4 ? Integer.parseInt(prefix.substring(0, 4)) : 0;
-        
-        // Visa: starts with 4
-        if (firstDigit == 4) {
-            return "VISA";
-        }
-        
-        // Mastercard: 51-55, 2221-2720
-        if (firstTwoDigits >= 51 && firstTwoDigits <= 55) {
-            return "MASTERCARD";
-        }
-        if (firstFourDigits >= 2221 && firstFourDigits <= 2720) {
-            return "MASTERCARD";
-        }
-        
-        // American Express: 34, 37
-        if (firstTwoDigits == 34 || firstTwoDigits == 37) {
-            return "AMEX";
-        }
-        
-        // Discover: 6011, 622126-622925, 644-649, 65
-        if (firstFourDigits == 6011 || firstTwoDigits == 65) {
-            return "DISCOVER";
-        }
-        if (firstThreeDigits >= 644 && firstThreeDigits <= 649) {
-            return "DISCOVER";
-        }
-        if (firstFourDigits >= 622126 && firstFourDigits <= 622925) {
-            return "DISCOVER";
-        }
-        
-        // Diners Club: 300-305, 36, 38
-        if (firstThreeDigits >= 300 && firstThreeDigits <= 305) {
-            return "DINERS";
-        }
-        if (firstTwoDigits == 36 || firstTwoDigits == 38) {
-            return "DINERS";
-        }
-        
-        // JCB: 3528-3589
-        if (firstFourDigits >= 3528 && firstFourDigits <= 3589) {
-            return "JCB";
-        }
-        
-        return "UNKNOWN";
-    }
-    
-    private String extractCardBin(String cardNumber) {
-        if (cardNumber == null || cardNumber.isEmpty()) {
-            return null;
-        }
-        String cleanCardNumber = cardNumber.replaceAll("\\D", "");
-        return cleanCardNumber.length() >= 6 ? cleanCardNumber.substring(0, 6) : null;
-    }
-    
-    private String extractCardLastFour(String cardNumber) {
-        if (cardNumber == null || cardNumber.isEmpty()) {
-            return null;
-        }
-        String cleanCardNumber = cardNumber.replaceAll("\\D", "");
-        return cleanCardNumber.length() >= 4 ? cleanCardNumber.substring(cleanCardNumber.length() - 4) : null;
-    }
-    
+
     private Payment.PaymentStatus processPaymentThroughGateway(PaymentRequest request, Payment payment) {
         log.info("Processing payment through gateway for payment: {}", payment.getPaymentId());
         
@@ -879,20 +819,20 @@ public class PaymentService {
                 String message = parts[2];
                 
                 log.info("Parsed webhook data - PaymentId: {}, Status: {}, Message: {}", paymentId, status, message);
-                
+
                 // Payment ID ile payment'ı bul
                 Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
                 if (paymentOpt.isPresent()) {
                     Payment payment = paymentOpt.get();
                     
                     log.info("Found payment: {} with current status: {}", payment.getPaymentId(), payment.getStatus());
-                    
+
                     // Banka'dan gelen status'a göre güncelle
                     Payment.PaymentStatus newStatus = mapBankStatusToPaymentStatus(status);
                     Payment.PaymentStatus oldStatus = payment.getStatus();
-                    
+
                     log.info("Updating payment status from {} to {} via {} webhook", oldStatus, newStatus, bankType);
-                    
+
                     payment.setStatus(newStatus);
                     payment.setGatewayResponse(bankType + " webhook: " + message);
                     payment.setUpdatedAt(LocalDateTime.now());
@@ -905,7 +845,7 @@ public class PaymentService {
                     
                     paymentRepository.save(payment);
                     log.info("Payment {} status updated successfully in database", payment.getPaymentId());
-                    
+
                     // Audit logging
                     auditService.logEvent(
                         auditService.createEvent()
@@ -922,7 +862,7 @@ public class PaymentService {
                             .complianceTag("PCI_DSS")
                     );
                     
-                    log.info("Payment status updated via {} webhook from {} to {} for payment ID: {}", 
+                    log.info("Payment status updated via {} webhook from {} to {} for payment ID: {}",
                             bankType, oldStatus, newStatus, payment.getPaymentId());
                     
                     // Merchant'a webhook gönder (payment durumu değişti)

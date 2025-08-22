@@ -24,7 +24,7 @@ public class RefundController {
     
     private final RefundService refundService;
     private final MerchantAuthService merchantAuthService;
-    
+
     // POST - Create new refund
     @PostMapping
     public ResponseEntity<RefundResponse> createRefund(
@@ -50,7 +50,7 @@ public class RefundController {
             errorResponse.setMessage("Merchant bilgisi alınamadı.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
         }
-        
+
         RefundResponse response = refundService.createRefundForMerchant(request, merchantId);
         
         if (response.isSuccess()) {
@@ -106,7 +106,7 @@ public class RefundController {
         if (merchantId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        
+
         RefundResponse response = refundService.getRefundByIdForMerchant(id, merchantId);
         
         if (response.isSuccess()) {
@@ -436,7 +436,7 @@ public class RefundController {
         if (apiKey == null) {
             return null;
         }
-        
+
         // Test mode - her test API key'ini farklı merchant'a eşle
         if (apiKey.startsWith("pk_test_") || apiKey.equals("pk_merch001_live_abc123")) {
             switch (apiKey) {
@@ -452,7 +452,7 @@ public class RefundController {
                     return "TEST_MERCHANT"; // Default test merchant
             }
         }
-        
+
         // Production'da merchant'ı API key ile bulup merchant ID'yi döneriz
         return merchantAuthService.getMerchantByApiKey(apiKey)
                 .map(merchant -> merchant.getMerchantId())

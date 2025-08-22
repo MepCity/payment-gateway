@@ -17,7 +17,7 @@ export const authAPI = {
       // Real backend authentication endpoint
       const response = await authApiClient.post('/v1/auth/login', credentials);
       return response.data;
-      
+
     } catch (error: any) {
       console.error('Login error:', error);
       return {

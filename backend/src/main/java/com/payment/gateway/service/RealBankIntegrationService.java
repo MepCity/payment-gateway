@@ -2,6 +2,8 @@ package com.payment.gateway.service;
 
 import com.payment.gateway.dto.PaymentRequest;
 import com.payment.gateway.model.Payment;
+import com.payment.gateway.util.CardUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -73,7 +75,7 @@ public class RealBankIntegrationService {
      * Garanti BBVA test ortamı ile ödeme işlemi
      */
     private BankPaymentResult processGarantiBBVAPayment(PaymentRequest request, Payment payment) {
-        log.info("Processing Garanti BBVA test payment for card: {}", maskCardNumber(request.getCardNumber()));
+        log.info("Processing Garanti BBVA test payment for card: {}", CardUtils.maskCardNumber(request.getCardNumber()));
 
         try {
             // Garanti BBVA test API çağrısı için payload hazırla
@@ -198,13 +200,7 @@ public class RealBankIntegrationService {
                cleanCard.startsWith("518134");    // Garanti Flexi
     }
 
-    /**
-     * Kart numarasını maskeler
-     */
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 10) return "****";
-        return cardNumber.substring(0, 6) + "******" + cardNumber.substring(cardNumber.length() - 4);
-    }
+  
 
     /**
      * Basic Auth credentials encode eder

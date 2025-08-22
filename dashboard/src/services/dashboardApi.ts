@@ -90,110 +90,6 @@ export interface PaymentListResponse {
 }
 
 export const dashboardAPI = {
-  // Get customer payments by customer ID
-  getCustomerPayments: async (customerId: string): Promise<PaymentListItem[]> => {
-    try {
-      const merchantId = getCurrentMerchantId();
-      console.log('📊 Getting customer payments for customer:', customerId, 'merchant:', merchantId);
-      
-      const response = await dashboardApiClient.get(`/v1/payments/customer/${customerId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Get customer payments error:', error);
-      return [];
-    }
-  },
-
-  // Get all customers by extracting from payments data
-  getCustomers: async (): Promise<any[]> => {
-    try {
-      const merchantId = getCurrentMerchantId();
-      console.log('📊 Getting customers for merchant:', merchantId);
-      
-      // Get all payments for the merchant and extract unique customers
-      const response = await dashboardApiClient.get(`/v1/payments/merchant/${merchantId}`);
-      const payments = response.data;
-      
-      // Extract unique customers from payments
-      const customerMap = new Map();
-      payments.forEach((payment: any) => {
-        if (payment.customerId) {
-          if (!customerMap.has(payment.customerId)) {
-            customerMap.set(payment.customerId, {
-              id: Date.now() + Math.random(), // Unique ID
-              customerId: payment.customerId,
-              customerName: payment.customerName || payment.cardHolderName || 'Unknown Customer',
-              email: payment.customerEmail || 'no-email@example.com',
-              phone: payment.customerPhone || 'N/A',
-              description: `Customer from payment ${payment.paymentId}`,
-              address: payment.customerAddress || 'N/A',
-              status: 'ACTIVE',
-              createdAt: payment.createdAt || new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              lastPaymentAt: payment.createdAt || new Date().toISOString(),
-              totalPayments: 1,
-              totalAmount: payment.amount || 0,
-              currency: payment.currency || 'USD'
-            });
-          } else {
-            // Update existing customer with additional payment info
-            const existingCustomer = customerMap.get(payment.customerId);
-            existingCustomer.totalPayments += 1;
-            existingCustomer.totalAmount += (payment.amount || 0);
-            if (payment.createdAt && new Date(payment.createdAt) > new Date(existingCustomer.lastPaymentAt)) {
-              existingCustomer.lastPaymentAt = payment.createdAt;
-            }
-          }
-        }
-      });
-      
-      return Array.from(customerMap.values());
-    } catch (error) {
-      console.error('Get customers error:', error);
-      return [];
-    }
-  },
-
-  // Get comprehensive dashboard statistics
-  getDashboardStats: async (): Promise<{ data: any }> => {
-    try {
-      // Current merchant ID'yi al
-      const merchantId = getCurrentMerchantId();
-      console.log('📊 Getting dashboard stats for merchant:', merchantId);
-      
-      // Backend'den dashboard statistics'i çek - doğru endpoint
-      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}`);
-      return { data: response.data };
-    } catch (error) {
-      console.error('Get dashboard stats error:', error);
-      // Fallback olarak manual calculation
-      const [payments, refunds] = await Promise.all([
-        dashboardApiClient.get('/v1/payments').catch(() => ({ data: [] })),
-        dashboardApiClient.get('/v1/refunds').catch(() => ({ data: [] }))
-      ]);
-      
-      const paymentsData = payments.data || [];
-      const refundsData = refunds.data || [];
-      
-      const stats = {
-        totalPayments: paymentsData.length,
-        totalAmount: paymentsData.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
-        successRate: paymentsData.length > 0 ? 
-          (paymentsData.filter((p: any) => p.status === 'COMPLETED').length / paymentsData.length) * 100 : 0,
-        pendingPayments: paymentsData.filter((p: any) => 
-          p.status === 'PENDING' || p.status === 'PROCESSING').length,
-        totalRefunds: refundsData.length,
-        refundAmount: refundsData.reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
-        totalCustomers: new Set(paymentsData.map((p: any) => p.customerId)).size,
-        totalDisputes: 12, // Mock data
-        pendingDisputes: 3, // Mock data
-        disputeRate: paymentsData.length > 0 ? (12 / paymentsData.length) * 100 : 0
-      };
-      
-      return { data: stats };
-    }
-  },
-
   // Get payment statistics
   getPaymentStats: async (merchantId: string): Promise<PaymentStats> => {
     try {
@@ -733,14 +629,14 @@ export const dashboardAPI = {
       // Merchant ID belirtilmemişse current merchant'ı kullan
       const targetMerchantId = merchantId || getCurrentMerchantId();
       console.log('📊 Fetching dispute stats for merchant:', targetMerchantId);
-      
+
       const apiUrl = `/v1/merchant-dashboard/${targetMerchantId}/disputes`;
       console.log('🌐 Stats API URL:', apiUrl);
-      
+
       const response = await dashboardApiClient.get(apiUrl);
       console.log('✅ Dispute stats response status:', response.status);
       console.log('✅ Dispute stats response data:', response.data);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Get dispute stats error:', error);
@@ -763,7 +659,7 @@ export const dashboardAPI = {
       // Merchant ID belirtilmemişse current merchant'ı kullan
       const targetMerchantId = merchantId || getCurrentMerchantId();
       console.log('📄 Fetching disputes for merchant:', targetMerchantId, '- page:', page, 'size:', size, 'filters:', filters);
-      
+
       const params = new URLSearchParams({
         page: page.toString(),
         size: size.toString(),
@@ -838,6 +734,109 @@ export const dashboardAPI = {
 
   respondToDispute: async (
     merchantId: string = 'MERCH001',
+    disputeId: string,
+    disputeResponse: DisputeResponse
+  ): Promise<{ success: boolean; message: string; nextStep?: string }> => {
+    try {
+      console.log('📝 Responding to dispute:', disputeId, 'type:', disputeResponse.responseType);
+      const response = await dashboardApiClient.post(
+        `/v1/merchant-dashboard/${merchantId}/disputes/${disputeId}/respond`,
+        disputeResponse
+      );
+      console.log('✅ Dispute response submitted:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Respond to dispute error:', error);
+      throw error;
+    }
+  },
+
+  // Dispute operations
+  getDisputeStats: async (merchantId: string = 'TEST_MERCHANT'): Promise<DisputeStats> => {
+    try {
+      console.log('📊 Fetching dispute stats for merchant:', merchantId);
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes`);
+      console.log('✅ Dispute stats response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Get dispute stats error:', error);
+      throw error;
+    }
+  },
+
+  getDisputes: async (
+    merchantId: string = 'TEST_MERCHANT',
+    page: number = 0,
+    size: number = 20,
+    filters?: DisputeFilters
+  ): Promise<{ disputes: DisputeListItem[]; pagination: PaginationInfo }> => {
+    try {
+      console.log('📄 Fetching disputes - page:', page, 'size:', size, 'filters:', filters);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+      });
+
+      if (filters?.status?.length) {
+        filters.status.forEach(s => params.append('status', s));
+      }
+      if (filters?.reason?.length) {
+        filters.reason.forEach(r => params.append('reason', r));
+      }
+      if (filters?.dateFrom) {
+        params.append('dateFrom', filters.dateFrom);
+      }
+      if (filters?.dateTo) {
+        params.append('dateTo', filters.dateTo);
+      }
+      if (filters?.minAmount !== undefined) {
+        params.append('minAmount', filters.minAmount.toString());
+      }
+      if (filters?.maxAmount !== undefined) {
+        params.append('maxAmount', filters.maxAmount.toString());
+      }
+      if (filters?.search) {
+        params.append('search', filters.search);
+      }
+
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/list?${params}`);
+      console.log('✅ Disputes response:', response.data);
+
+      return {
+        disputes: response.data.content || [],
+        pagination: {
+          page: response.data.page || 0,
+          totalPages: response.data.totalPages || 0,
+          totalCount: response.data.totalElements || 0,
+          pageSize: response.data.size || 20,
+          hasNext: !response.data.last,
+          hasPrev: !response.data.first,
+        }
+      };
+    } catch (error) {
+      console.error('Get disputes error:', error);
+      throw error;
+    }
+  },
+
+  getDisputeDetail: async (
+    merchantId: string = 'TEST_MERCHANT',
+    disputeId: string
+  ): Promise<DisputeDetail> => {
+    try {
+      console.log('🔍 Fetching dispute detail:', disputeId);
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/${disputeId}`);
+      console.log('✅ Dispute detail response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Get dispute detail error:', error);
+      throw error;
+    }
+  },
+
+  respondToDispute: async (
+    merchantId: string = 'TEST_MERCHANT',
     disputeId: string,
     disputeResponse: DisputeResponse
   ): Promise<{ success: boolean; message: string; nextStep?: string }> => {

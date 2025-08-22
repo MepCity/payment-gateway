@@ -1,7 +1,14 @@
 package com.payment.gateway.service;
 
+import com.payment.gateway.dto.PaymentRequest;
+import com.payment.gateway.dto.PaymentResponse;
+import com.payment.gateway.model.Payment;
+import com.payment.gateway.repository.PaymentRepository;
+import com.payment.gateway.util.CardUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -54,7 +61,7 @@ public class BankTestService {
      * Gerçek implementasyonda her bankanın API'sine istek atılır
      */
     public BankTestResult processTestPayment(String cardNumber, String amount, String currency) {
-        log.info("Test ödeme işlemi: Kart={}, Tutar={} {}", maskCardNumber(cardNumber), amount, currency);
+        log.info("Test ödeme işlemi: Kart={}, Tutar={} {}", CardUtils.maskCardNumber(cardNumber), amount, currency);
         
         // Kart numarasından boşlukları temizle
         String cleanCardNumber = cardNumber.replaceAll("\\s+", "");
@@ -82,7 +89,7 @@ public class BankTestService {
      * 3D Secure doğrulama simülasyonu
      */
     public BankTestResult process3DSecure(String cardNumber, String password) {
-        log.info("3D Secure doğrulama: Kart={}", maskCardNumber(cardNumber));
+        log.info("3D Secure doğrulama: Kart={}", CardUtils.maskCardNumber(cardNumber));
         
         // Test şifreleri
         if ("123456".equals(password)) {
@@ -111,13 +118,7 @@ public class BankTestService {
         return errorCodes.getOrDefault(errorCode, "Bilinmeyen hata");
     }
     
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 6) {
-            return "****";
-        }
-        String clean = cardNumber.replaceAll("\\s+", "");
-        return clean.substring(0, 4) + "****" + clean.substring(clean.length() - 4);
-    }
+    
     
     // Test sonucu modeli
     public static class BankTestResult {

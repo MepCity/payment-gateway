@@ -54,9 +54,12 @@ const CustomerDetailPage: React.FC = () => {
     setError(null);
     
     try {
-      // Instead of storing customer database, derive customer info from payments
-      const storedPayments = JSON.parse(localStorage.getItem('payments') || '[]');
-      const customerPayments = storedPayments.filter((payment: any) => 
+      // Backend'den real-time payment verilerini çek
+      const paymentsResponse = await dashboardAPI.getPayments('TEST_MERCHANT');
+      const allPayments = paymentsResponse.payments || [];
+
+      // Bu customer'a ait payment'ları filtrele
+      const customerPayments = allPayments.filter((payment: any) =>
         payment.customerId === customerId
       );
       
@@ -70,11 +73,11 @@ const CustomerDetailPage: React.FC = () => {
       const customerInfo: CustomerDetail = {
         id: Date.now(),
         customerId: customerId,
-        customerName: firstPayment.customerName || firstPayment.cardHolderName || 'Unknown Customer',
-        email: firstPayment.customerEmail || 'no-email@example.com',
-        phone: firstPayment.customerPhone,
+        customerName: firstPayment.cardHolderName || 'Unknown Customer',
+        email: 'no-email@example.com', // PaymentListItem'da email yok
+        phone: undefined, // PaymentListItem'da phone yok
         description: `Customer derived from payment ${firstPayment.paymentId}`,
-        address: firstPayment.customerAddress,
+        address: undefined, // PaymentListItem'da address yok
         status: 'ACTIVE' as any,
         createdAt: firstPayment.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -86,7 +89,7 @@ const CustomerDetailPage: React.FC = () => {
       
       setCustomer(customerInfo);
       
-      // Load payment data using the derived customer info
+      // Load payment data using the real-time data
       await loadPaymentData(customerInfo, customerPayments);
       
     } catch (err: any) {
@@ -99,39 +102,49 @@ const CustomerDetailPage: React.FC = () => {
   const loadPaymentData = async (customer: CustomerDetail, customerPayments: any[]) => {
     try {
       console.log('Loading payment data for customer:', customer);
+      console.log('Customer payments from backend:', customerPayments);
       
-      // Backend'den güncel customer payments verilerini al
-      const backendPayments = await dashboardAPI.getCustomerPayments(customerId!);
-      console.log('Backend customer payments:', backendPayments);
+      // Sort payments by createdAt (newest first - yeniden eskiye)
+      const sortedPayments = customerPayments.sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      });
       
-      // Backend'den gelen veri varsa onu kullan, yoksa localStorage'dan
-      const paymentsToUse = backendPayments.length > 0 ? backendPayments : customerPayments;
-      
-      console.log('Using payments:', paymentsToUse);
-      
-      // Set payment intents (all payments for this customer)
-      setPaymentIntents(paymentsToUse.map((payment: any) => ({
+      console.log('Sorted payments (newest first):', sortedPayments.map((p: any) => ({
+        paymentId: p.paymentId,
+        status: p.status,
+        createdAt: p.createdAt
+      })));
+
+      // Set payment intents (all payments for this customer with real status from backend)
+      setPaymentIntents(sortedPayments.map((payment: any) => ({
         paymentId: payment.paymentId || payment.id,
         merchantId: payment.merchantId || 'TEST_MERCHANT',
-        status: payment.status || 'PROCESSING', // Default status'u PROCESSING yap
+        status: payment.status || 'PENDING', // Real status from backend - PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED, REFUNDED
         amount: payment.amount || 0,
         currency: payment.currency || 'USD',
         activeAttemptId: `pay_${Date.now()}_1`,
-        business: 'NA'
+        business: 'NA',
+        createdAt: payment.createdAt || new Date().toISOString()
       })));
       
-      // Set payment attempts (successful payments)
-      setPaymentAttempts(paymentsToUse.map((payment: any) => ({
+      // Set payment attempts (all payments with real status from backend)
+      setPaymentAttempts(sortedPayments.map((payment: any) => ({
         paymentId: payment.paymentId || payment.id,
         merchantId: payment.merchantId || 'TEST_MERCHANT',
-        status: payment.status || 'PROCESSING', // Default status'u PROCESSING yap
+        status: payment.status || 'PENDING', // Real status from backend - PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED, REFUNDED
         amount: payment.amount || 0,
         currency: payment.currency || 'USD',
         connector: 'fauxpay',
         paymentMethod: payment.paymentMethod || 'CREDIT_CARD',
-        paymentType: 'cred'
+        paymentType: 'cred',
+        createdAt: payment.createdAt || new Date().toISOString()
       })));
       
+      console.log('Payment intents with real status:', paymentIntents);
+      console.log('Payment attempts with real status:', paymentAttempts);
+
       // Get refunds for this customer's payments using the same API as RefundsPage
       try {
         const refundsResponse = await dashboardAPI.getRefunds('TEST_MERCHANT');
@@ -139,7 +152,7 @@ const CustomerDetailPage: React.FC = () => {
         
         // Filter refunds that belong to this customer's payments
         const customerRefunds = allRefunds.filter((refund: RefundListItem) => {
-          return paymentsToUse.some((payment: any) => 
+          return sortedPayments.some((payment: any) =>
             payment.paymentId === refund.paymentId || payment.id === refund.paymentId
           );
         });
@@ -166,15 +179,9 @@ const CustomerDetailPage: React.FC = () => {
     if (!customerId) return;
     
     try {
-      console.log('Syncing customer:', customerId);
-      
-      // Backend'den güncel veri al
+      // Real-time sync from backend
+      console.log('Syncing customer from backend:', customerId);
       await loadCustomerDetail();
-      
-      // Payment data'yı da yeniden yükle
-      if (customer) {
-        await loadPaymentData(customer, []);
-      }
     } catch (err: any) {
       setError(err.message || 'Failed to sync customer');
     }
@@ -192,7 +199,16 @@ const CustomerDetailPage: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM dd, yyyy HH:mm:ss');
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return format(date, 'MMM dd, yyyy HH:mm:ss');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid Date';
+    }
   };
 
   const getInitials = (name: string) => {
@@ -261,6 +277,78 @@ const CustomerDetailPage: React.FC = () => {
           onClick={handleSyncCustomer}
         >
           Sync
+        </Button>
+
+        {/* Debug button for testing real-time data */}
+        <Button
+          variant="outlined"
+          onClick={async () => {
+            try {
+              console.log('🔍 Debug: Fetching real-time payments...');
+              const paymentsResponse = await dashboardAPI.getPayments('TEST_MERCHANT');
+              console.log('🔍 Debug: All payments from backend:', paymentsResponse.payments);
+
+              const customerPayments = paymentsResponse.payments.filter((p: any) =>
+                p.customerId === customerId
+              );
+              console.log('🔍 Debug: Customer payments:', customerPayments);
+              console.log('🔍 Debug: Payment statuses:', customerPayments.map((p: any) => p.status));
+
+              // Sort and show dates
+              const sortedPayments = customerPayments.sort((a: any, b: any) => {
+                const dateA = new Date(a.createdAt || 0);
+                const dateB = new Date(b.createdAt || 0);
+                return dateB.getTime() - dateA.getTime();
+              });
+
+              console.log('🔍 Debug: Sorted payments (newest first):', sortedPayments.map((p: any) => ({
+                paymentId: p.paymentId,
+                status: p.status,
+                createdAt: p.createdAt,
+                formattedDate: formatDate(p.createdAt)
+              })));
+
+              // Reload data
+              await loadCustomerDetail();
+            } catch (error) {
+              console.error('Debug error:', error);
+            }
+          }}
+          sx={{ ml: 1 }}
+        >
+          Debug Data
+        </Button>
+
+        {/* Create test payments button */}
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={async () => {
+            try {
+              console.log('🧪 Creating test payments...');
+              const response = await fetch('http://localhost:8080/mock/garanti/create-test-payments', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                }
+              });
+
+              if (response.ok) {
+                const result = await response.json();
+                console.log('🧪 Test payments created:', result);
+
+                // Reload customer data to show new payments
+                await loadCustomerDetail();
+              } else {
+                console.error('🧪 Failed to create test payments');
+              }
+            } catch (error) {
+              console.error('Test payments error:', error);
+            }
+          }}
+          sx={{ ml: 1 }}
+        >
+          Create Test Payments
         </Button>
       </Box>
 
@@ -440,7 +528,12 @@ const CustomerDetailPage: React.FC = () => {
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
                   }}>Currency</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Created Date</TableCell>
+                  <TableCell sx={{
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
@@ -472,6 +565,7 @@ const CustomerDetailPage: React.FC = () => {
                       </TableCell>
                       <TableCell>{formatAmount(intent.amount, intent.currency)}</TableCell>
                       <TableCell>{intent.currency}</TableCell>
+                      <TableCell>{intent.createdAt ? formatDate(intent.createdAt) : 'N/A'}</TableCell>
                       <TableCell>{intent.activeAttemptId}</TableCell>
                       <TableCell>{intent.business}</TableCell>
                       <TableCell>
@@ -492,7 +586,7 @@ const CustomerDetailPage: React.FC = () => {
                     borderBottom: '1px solid',
                     borderColor: 'divider'
                   }}>
-                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No payment intents found for this customer
                       </Typography>
@@ -553,6 +647,11 @@ const CustomerDetailPage: React.FC = () => {
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
+                  }}>Created Date</TableCell>
+                  <TableCell sx={{
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
                   }}>Connector</TableCell>
                   <TableCell sx={{ 
                     fontWeight: 600,
@@ -586,6 +685,7 @@ const CustomerDetailPage: React.FC = () => {
                       </TableCell>
                       <TableCell>{formatAmount(attempt.amount, attempt.currency)}</TableCell>
                       <TableCell>{attempt.currency}</TableCell>
+                      <TableCell>{attempt.createdAt ? formatDate(attempt.createdAt) : 'N/A'}</TableCell>
                       <TableCell>{attempt.connector}</TableCell>
                       <TableCell>{attempt.paymentMethod}</TableCell>
                       <TableCell>{attempt.paymentType}</TableCell>
@@ -607,7 +707,7 @@ const CustomerDetailPage: React.FC = () => {
                     borderBottom: '1px solid',
                     borderColor: 'divider'
                   }}>
-                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No payment attempts found for this customer
                       </Typography>
@@ -673,7 +773,7 @@ const CustomerDetailPage: React.FC = () => {
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
-                  }}>Created At</TableCell>
+                  }}>Refund Date</TableCell>
                   <TableCell sx={{ 
                     fontWeight: 600,
                     color: 'text.primary',

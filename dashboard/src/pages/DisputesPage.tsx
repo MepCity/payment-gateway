@@ -89,20 +89,20 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
     try {
       setLoading(true);
       console.log('🔄 Loading disputes for page:', page);
-      
+
       // Explicitly use MERCH001 to fetch disputes from the correct merchant
       const { disputes: disputeData, pagination: paginationData } = await dashboardAPI.getDisputes(
         'MERCH001', // Explicitly use MERCH001
         page,
         pagination.pageSize
       );
-      
+
       console.log('📊 Disputes API response:', { disputeData, paginationData });
       console.log('📋 Disputes count:', disputeData.length);
-      
+
       setDisputes(disputeData);
       setPagination(paginationData);
-      
+
       console.log('✅ Disputes loaded successfully');
     } catch (err) {
       console.error('❌ Error loading disputes:', err);
@@ -275,11 +275,11 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
 
       {/* Stats Cards */}
       {statsLoading ? (
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
-          gap: 3, 
-          mb: 4 
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+          gap: 3,
+          mb: 4
         }}>
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
@@ -297,7 +297,7 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
           ))}
         </Box>
       ) : stats ? (
-        <Box sx={{ 
+        <Box sx={{
           display: 'grid', 
           gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
           gap: 3, 
@@ -380,11 +380,11 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
         </Box>
       ) : (
         // Fallback stats when API fails
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
-          gap: 3, 
-          mb: 4 
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+          gap: 3,
+          mb: 4
         }}>
           <Card>
             <CardContent>
@@ -460,7 +460,7 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
             Debug: Disputes count: {disputes.length} | Loading: {loading.toString()} | Error: {error || 'none'}
           </Typography>
         </Box>
-        
+
         <TableContainer>
           <Table>
             <TableHead>

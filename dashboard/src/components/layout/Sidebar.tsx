@@ -27,6 +27,8 @@ import {
   ExpandMore,
   ChevronLeft,
   ChevronRight,
+  Dashboard,
+  ListAlt,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -63,12 +65,12 @@ const menuItems: MenuItem[] = [
   {
     id: 'operations',
     title: 'Operations',
-    icon: <Payment />,
+    icon: <Dashboard />,
     children: [
       {
         id: 'payments',
         title: 'Payments',
-        icon: <Payment />,
+        icon: <ListAlt />,
         path: '/dashboard/payments'
       },
       {
