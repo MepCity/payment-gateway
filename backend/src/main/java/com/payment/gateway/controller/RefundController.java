@@ -118,10 +118,24 @@ public class RefundController {
     
     // GET - Get refund by refund ID
     @GetMapping("/refund-id/{refundId}")
-    public ResponseEntity<RefundResponse> getRefundByRefundId(@PathVariable String refundId) {
+    public ResponseEntity<RefundResponse> getRefundByRefundId(
+            @PathVariable String refundId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving refund with refund ID: {}", refundId);
-        
-        RefundResponse response = refundService.getRefundByRefundId(refundId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refund get by refundId denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        RefundResponse response = refundService.getRefundByRefundIdForMerchant(refundId, merchantId);
         
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -132,10 +146,24 @@ public class RefundController {
     
     // GET - Get refund by payment ID
     @GetMapping("/payment/{paymentId}")
-    public ResponseEntity<RefundResponse> getRefundByPaymentId(@PathVariable String paymentId) {
+    public ResponseEntity<RefundResponse> getRefundByPaymentId(
+            @PathVariable String paymentId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving refund with payment ID: {}", paymentId);
-        
-        RefundResponse response = refundService.getRefundByPaymentId(paymentId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refund get by paymentId denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        RefundResponse response = refundService.getRefundByPaymentIdForMerchant(paymentId, merchantId);
         
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -144,12 +172,25 @@ public class RefundController {
         }
     }
     
-    // GET - Get all refunds
+    // GET - Get all refunds for merchant
     @GetMapping
-    public ResponseEntity<List<RefundResponse>> getAllRefunds() {
-        log.info("Retrieving all refunds");
+    public ResponseEntity<List<RefundResponse>> getAllRefunds(
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+        log.info("Retrieving all refunds for merchant");
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refunds list denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         
-        List<RefundResponse> refunds = refundService.getAllRefunds();
+        List<RefundResponse> refunds = refundService.getRefundsByMerchantId(merchantId);
         return ResponseEntity.ok(refunds);
     }
     
@@ -157,46 +198,122 @@ public class RefundController {
     
     // GET - Get refunds by merchant ID
     @GetMapping("/merchant/{merchantId}")
-    public ResponseEntity<List<RefundResponse>> getRefundsByMerchantId(@PathVariable String merchantId) {
+    public ResponseEntity<List<RefundResponse>> getRefundsByMerchantId(
+            @PathVariable String merchantId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving refunds for merchant: {}", merchantId);
-        
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refunds by merchantId denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al ve doğrula
+        String requestingMerchantId = getMerchantIdFromApiKey(apiKey);
+        if (requestingMerchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Sadece kendi merchant ID'sini görebilir
+        if (!requestingMerchantId.equals(merchantId)) {
+            log.warn("🚫 Merchant {} başka merchant'ın ({}) refundlarını görmeye çalıştı", requestingMerchantId, merchantId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         List<RefundResponse> refunds = refundService.getRefundsByMerchantId(merchantId);
         return ResponseEntity.ok(refunds);
     }
     
     // GET - Get refunds by customer ID
     @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<RefundResponse>> getRefundsByCustomerId(@PathVariable String customerId) {
+    public ResponseEntity<List<RefundResponse>> getRefundsByCustomerId(
+            @PathVariable String customerId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving refunds for customer: {}", customerId);
-        
-        List<RefundResponse> refunds = refundService.getRefundsByCustomerId(customerId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refunds by customerId denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<RefundResponse> refunds = refundService.getRefundsByCustomerIdForMerchant(customerId, merchantId);
         return ResponseEntity.ok(refunds);
     }
     
     // GET - Get refunds by status
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<RefundResponse>> getRefundsByStatus(@PathVariable Refund.RefundStatus status) {
+    public ResponseEntity<List<RefundResponse>> getRefundsByStatus(
+            @PathVariable Refund.RefundStatus status,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving refunds with status: {}", status);
-        
-        List<RefundResponse> refunds = refundService.getRefundsByStatus(status);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refunds by status denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<RefundResponse> refunds = refundService.getRefundsByStatusForMerchant(status, merchantId);
         return ResponseEntity.ok(refunds);
     }
     
     // GET - Get refunds by reason
     @GetMapping("/reason/{reason}")
-    public ResponseEntity<List<RefundResponse>> getRefundsByReason(@PathVariable Refund.RefundReason reason) {
+    public ResponseEntity<List<RefundResponse>> getRefundsByReason(
+            @PathVariable Refund.RefundReason reason,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving refunds with reason: {}", reason);
-        
-        List<RefundResponse> refunds = refundService.getRefundsByReason(reason);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refunds by reason denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<RefundResponse> refunds = refundService.getRefundsByReasonForMerchant(reason, merchantId);
         return ResponseEntity.ok(refunds);
     }
     
     // GET - Get refunds by transaction ID
     @GetMapping("/transaction/{transactionId}")
-    public ResponseEntity<List<RefundResponse>> getRefundsByTransactionId(@PathVariable String transactionId) {
+    public ResponseEntity<List<RefundResponse>> getRefundsByTransactionId(
+            @PathVariable String transactionId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving refunds for transaction: {}", transactionId);
-        
-        List<RefundResponse> refunds = refundService.getRefundsByTransactionId(transactionId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile refunds by transactionId denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<RefundResponse> refunds = refundService.getRefundsByTransactionIdForMerchant(transactionId, merchantId);
         return ResponseEntity.ok(refunds);
     }
     

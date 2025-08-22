@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.payment.gateway.service.AuditService;
 import com.payment.gateway.model.AuditLog;
 
 
@@ -157,6 +156,53 @@ public class RefundService {
         } else {
             return createErrorResponse("Refund not found with ID: " + id);
         }
+    }
+    
+    // Merchant-aware refund methods
+    public RefundResponse getRefundByRefundIdForMerchant(String refundId, String merchantId) {
+        Optional<Refund> refund = refundRepository.findByRefundIdAndMerchantId(refundId, merchantId);
+        if (refund.isPresent()) {
+            return createRefundResponse(refund.get(), "Refund retrieved successfully", true);
+        } else {
+            return createErrorResponse("Refund not found with refund ID: " + refundId + " for merchant: " + merchantId);
+        }
+    }
+    
+    public RefundResponse getRefundByPaymentIdForMerchant(String paymentId, String merchantId) {
+        Optional<Refund> refund = refundRepository.findByPaymentIdAndMerchantId(paymentId, merchantId);
+        if (refund.isPresent()) {
+            return createRefundResponse(refund.get(), "Refund retrieved successfully", true);
+        } else {
+            return createErrorResponse("Refund not found with payment ID: " + paymentId + " for merchant: " + merchantId);
+        }
+    }
+    
+    public List<RefundResponse> getRefundsByCustomerIdForMerchant(String customerId, String merchantId) {
+        List<Refund> refunds = refundRepository.findByCustomerIdAndMerchantId(customerId, merchantId);
+        return refunds.stream()
+                .map(refund -> createRefundResponse(refund, null, true))
+                .collect(Collectors.toList());
+    }
+    
+    public List<RefundResponse> getRefundsByStatusForMerchant(Refund.RefundStatus status, String merchantId) {
+        List<Refund> refunds = refundRepository.findByStatusAndMerchantId(status, merchantId);
+        return refunds.stream()
+                .map(refund -> createRefundResponse(refund, null, true))
+                .collect(Collectors.toList());
+    }
+    
+    public List<RefundResponse> getRefundsByReasonForMerchant(Refund.RefundReason reason, String merchantId) {
+        List<Refund> refunds = refundRepository.findByReasonAndMerchantId(reason, merchantId);
+        return refunds.stream()
+                .map(refund -> createRefundResponse(refund, null, true))
+                .collect(Collectors.toList());
+    }
+    
+    public List<RefundResponse> getRefundsByTransactionIdForMerchant(String transactionId, String merchantId) {
+        List<Refund> refunds = refundRepository.findByTransactionIdAndMerchantId(transactionId, merchantId);
+        return refunds.stream()
+                .map(refund -> createRefundResponse(refund, null, true))
+                .collect(Collectors.toList());
     }
     
     public RefundResponse getRefundByRefundId(String refundId) {
