@@ -3,13 +3,14 @@ package com.payment.gateway.service;
 import com.payment.gateway.dto.PaymentRequest;
 import com.payment.gateway.model.VelocityCheck;
 import com.payment.gateway.repository.VelocityCheckRepository;
+import com.payment.gateway.service.AuditService;
+import com.payment.gateway.model.AuditLog;
+import com.payment.gateway.util.CardUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.payment.gateway.service.AuditService;
-import com.payment.gateway.model.AuditLog;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -55,7 +56,7 @@ public class VelocityCheckService {
     @Transactional
     public boolean checkVelocityLimits(PaymentRequest request, String ipAddress) {
         log.debug("Checking velocity limits for card: {}, IP: {}", 
-                maskCardNumber(request.getCardNumber()), ipAddress);
+                CardUtils.maskCardNumber(request.getCardNumber()), ipAddress);
         
         boolean limitExceeded = false;
         
@@ -82,7 +83,7 @@ public class VelocityCheckService {
             .resourceType("PAYMENT")
             .resourceId("VEL-" + UUID.randomUUID().toString().substring(0, 8))
             .additionalData("limitExceeded", limitExceeded)
-            .additionalData("cardNumber", maskCardNumber(request.getCardNumber()))
+            .additionalData("cardNumber", CardUtils.maskCardNumber(request.getCardNumber()))
             .additionalData("ipAddress", ipAddress)
             .additionalData("customerId", request.getCustomerId())
             .additionalData("merchantId", request.getMerchantId())
@@ -90,13 +91,13 @@ public class VelocityCheckService {
             .log();
         
         log.info("Velocity check result for payment - Card: {}, Limit exceeded: {}", 
-                maskCardNumber(request.getCardNumber()), limitExceeded);
+                CardUtils.maskCardNumber(request.getCardNumber()), limitExceeded);
         
         return limitExceeded;
     }
     
     private boolean checkCardVelocity(PaymentRequest request) {
-        String cardPrefix = getCardPrefix(request.getCardNumber());
+        String cardPrefix = CardUtils.getCardPrefix(request.getCardNumber());
         boolean limitExceeded = false;
         
         // Check transactions per minute
@@ -238,29 +239,12 @@ public class VelocityCheckService {
         velocityCheckRepository.save(check);
     }
     
-    private String getCardPrefix(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 6) {
-            return "UNKNOWN";
-        }
-        // Use first 6 digits + last 4 for identification while maintaining privacy
-        String first6 = cardNumber.substring(0, 6);
-        String last4 = cardNumber.substring(cardNumber.length() - 4);
-        return first6 + "****" + last4;
-    }
-    
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 8) {
-            return "****";
-        }
-        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
-    }
-    
     private String generateCheckId() {
         return "VEL-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
     
     public VelocityCheck getLatestCheckForCard(String cardNumber, VelocityCheck.VelocityType type) {
-        String cardPrefix = getCardPrefix(cardNumber);
+        String cardPrefix = CardUtils.getCardPrefix(cardNumber);
         LocalDateTime since = LocalDateTime.now().minusHours(24); // Look back 24 hours
         
         List<VelocityCheck> checks = velocityCheckRepository.findRecentChecks(cardPrefix, type, since);

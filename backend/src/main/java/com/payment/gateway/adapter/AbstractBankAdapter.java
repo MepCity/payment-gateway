@@ -2,7 +2,9 @@ package com.payment.gateway.adapter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.payment.gateway.util.CardUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -131,16 +133,7 @@ public abstract class AbstractBankAdapter implements BankAdapter {
         }
         return cardNumber.substring(0, 6);
     }
-    
-    /**
-     * Kart numarasını maskele
-     */
-    protected String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 8) {
-            return "****";
-        }
-        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
-    }
+  
     
     /**
      * HTTP Basic Auth header oluştur

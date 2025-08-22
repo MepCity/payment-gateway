@@ -405,13 +405,18 @@ public class PaymentController {
         return remoteAddr != null ? remoteAddr : "unknown";
     }
 
-    /**
-     * Kart numarasını maskele
-     */
     private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 8) {
-            return "****";
+        if (cardNumber == null || cardNumber.length() < 10) {
+            return cardNumber;
         }
-        return cardNumber.substring(0, 4) + "****" + cardNumber.substring(cardNumber.length() - 4);
+        
+        // BIN (first 6 digits) + masked middle + last 4 digits format
+        // Example: 4111111111111111 -> 411111******1111
+        String bin = cardNumber.substring(0, 6);
+        String lastFour = cardNumber.substring(cardNumber.length() - 4);
+        int middleLength = cardNumber.length() - 10; // Total - 6 (BIN) - 4 (last four)
+        String maskedMiddle = "*".repeat(middleLength);
+        
+        return bin + maskedMiddle + lastFour;
     }
 }
