@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 /**
  * Mock Garanti BBVA API Controller
@@ -167,5 +168,57 @@ public class MockGarantiController {
             """.formatted(orderId, orderId, orderId);
             
         return ResponseEntity.ok(html);
+    }
+
+    /**
+     * Test payment'ları oluştur (farklı status'larda)
+     */
+    @PostMapping("/create-test-payments")
+    public ResponseEntity<Map<String, Object>> createTestPayments() {
+        log.info("Creating test payments with different statuses");
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // Test payment'ları oluştur
+            // Bu endpoint'i PaymentService ile entegre et
+            response.put("success", true);
+            response.put("message", "Test payments created successfully");
+            response.put("payments", List.of(
+                Map.of(
+                    "paymentId", "TEST-PAY-001",
+                    "status", "PENDING",
+                    "amount", 100.00,
+                    "customerId", "CUST-001"
+                ),
+                Map.of(
+                    "paymentId", "TEST-PAY-002", 
+                    "status", "PROCESSING",
+                    "amount", 250.00,
+                    "customerId", "CUST-001"
+                ),
+                Map.of(
+                    "paymentId", "TEST-PAY-003",
+                    "status", "COMPLETED", 
+                    "amount", 500.00,
+                    "customerId", "CUST-001"
+                ),
+                Map.of(
+                    "paymentId", "TEST-PAY-004",
+                    "status", "FAILED",
+                    "amount", 75.00, 
+                    "customerId", "CUST-001"
+                )
+            ));
+            
+            log.info("Test payments created successfully");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error creating test payments", e);
+            response.put("success", false);
+            response.put("message", "Failed to create test payments: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
     }
 }
