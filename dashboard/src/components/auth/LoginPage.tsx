@@ -83,6 +83,37 @@ const LoginPage: React.FC = () => {
             Sign in to your merchant dashboard
           </Typography>
 
+          {/* Test Account Information */}
+          <Paper 
+            variant="outlined" 
+            sx={{ 
+              p: 2, 
+              mb: 3, 
+              bgcolor: 'grey.50', 
+              border: '1px solid', 
+              borderColor: 'grey.300' 
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              Test Accounts:
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <strong>Test Merchant:</strong><br />
+              Email: test@merchant.com<br />
+              Password: password123
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <strong>Demo Store:</strong><br />
+              Email: demo@store.com<br />
+              Password: demo123
+            </Typography>
+            <Typography variant="body2">
+              <strong>Sample Shop:</strong><br />
+              Email: contact@sample.com<br />
+              Password: sample456
+            </Typography>
+          </Paper>
+
           {/* Error Alert */}
           {state.error && (
             <Alert severity="error" sx={{ width: '100%', mb: 2 }}>

@@ -181,46 +181,6 @@ POST /api/v1/bank-webhooks/akbank
 GET /actuator/health
 ```
 
-### Bank Webhook Endpoints
-
-#### 1. Garanti BBVA Webhook (POST)
-```http
-POST /api/v1/bank-webhooks/garanti
-Content-Type: application/json
-
-{
-  "eventType": "3D_SECURE_RESULT",
-  "orderId": "ORD-123456",
-  "status": "SUCCESS",
-  "authCode": "AUTH123"
-}
-```
-
-#### 2. İş Bankası Webhook (POST)
-```http
-POST /api/v1/bank-webhooks/isbank
-Content-Type: application/json
-
-{
-  "eventType": "PAYMENT_STATUS_CHANGE",
-  "orderId": "ORD-123456",
-  "status": "COMPLETED"
-}
-```
-
-#### 3. Akbank Webhook (POST)
-```http
-POST /api/v1/bank-webhooks/akbank
-Content-Type: application/json
-
-{
-  "eventType": "SETTLEMENT",
-  "orderId": "ORD-123456",
-  "settledAmount": "99.99",
-  "settlementDate": "2024-01-15"
-}
-```
-
 ### Customer Endpoints
 
 #### 1. Create Customer (POST)
@@ -270,9 +230,9 @@ GET /api/v1/customers/status/{status}
 GET /api/v1/customers/search?name=John
 ```
 
-#### 10. Update Customer (PUT)
+#### 10. Update Customer (POST)
 ```http
-PUT /api/v1/customers/{id}
+POST /api/v1/customers/{id}/update
 Content-Type: application/json
 
 {

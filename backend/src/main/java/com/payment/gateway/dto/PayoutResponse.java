@@ -18,6 +18,7 @@ public class PayoutResponse {
     private String payoutId;
     private String merchantId;
     private String customerId;
+    private String paymentId;
     private BigDecimal amount;
     private String currency;
     private Payout.PayoutStatus status;

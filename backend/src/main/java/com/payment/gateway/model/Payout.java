@@ -26,6 +26,9 @@ public class Payout {
     private String payoutId;
     
     @Column(nullable = false)
+    private String paymentId;
+    
+    @Column(nullable = false)
     private String merchantId;
     
     @Column(nullable = false)

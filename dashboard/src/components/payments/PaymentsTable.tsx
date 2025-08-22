@@ -69,7 +69,13 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
 
   if (payments.length === 0 && !loading) {
     return (
-      <Paper sx={{ p: 4, textAlign: 'center' }}>
+      <Paper sx={{ 
+        p: 4, 
+        textAlign: 'center',
+        backgroundColor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider'
+      }}>
         <Typography variant="h6" color="text.secondary">
           No payments found
         </Typography>
@@ -81,18 +87,59 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
   }
 
   return (
-    <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+    <TableContainer component={Paper} sx={{ 
+      borderRadius: 2,
+      backgroundColor: 'background.paper',
+      border: '1px solid',
+      borderColor: 'divider'
+    }}>
       <Table sx={{ minWidth: 650 }}>
         <TableHead>
-          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-            <TableCell>S.No</TableCell>
-            <TableCell>Payment ID</TableCell>
-            <TableCell>Connector</TableCell>
-            <TableCell>Profile Id</TableCell>
-            <TableCell>Amount</TableCell>
-            <TableCell>Payment Status</TableCell>
-            <TableCell>Payment Method</TableCell>
-            <TableCell>Actions</TableCell>
+          <TableRow sx={{ 
+            backgroundColor: 'background.paper',
+            borderBottom: '1px solid',
+            borderColor: 'divider'
+          }}>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>S.No</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>Payment ID</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>Connector</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>Profile Id</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>Amount</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>Payment Status</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>Payment Method</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
+            }}>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -102,6 +149,9 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
               hover
               sx={{ 
                 cursor: 'pointer',
+                backgroundColor: 'background.paper',
+                borderBottom: '1px solid',
+                borderColor: 'divider',
                 '&:hover': {
                   backgroundColor: 'action.hover',
                 }

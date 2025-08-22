@@ -20,6 +20,7 @@ import {
   ExitToApp,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -68,6 +69,76 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, onSidebarToggle }) => {
             <MenuIcon />
           </IconButton>
           
+          {/* CASHFLIX Logo */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            cursor: 'pointer',
+            mr: 2
+          }}>
+            <Box sx={{
+              width: 36,
+              height: 36,
+              background: 'linear-gradient(135deg, #E50914 0%, #B81D24 100%)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(229, 9, 20, 0.3)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  color: 'white',
+                  fontWeight: 900,
+                  fontSize: '1.1rem',
+                  letterSpacing: '-0.5px',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                  fontFamily: '"Arial Black", "Helvetica Black", sans-serif'
+                }}
+              >
+                C
+              </Typography>
+              {/* Netflix-style shine effect */}
+              <Box sx={{
+                position: 'absolute',
+                top: 0,
+                left: '-100%',
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                animation: 'shine 3s infinite',
+                '@keyframes shine': {
+                  '0%': { left: '-100%' },
+                  '50%': { left: '100%' },
+                  '100%': { left: '100%' }
+                }
+              }} />
+            </Box>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 900,
+                background: 'linear-gradient(135deg, #E50914 0%, #B81D24 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-1px',
+                fontFamily: '"Arial Black", "Helvetica Black", sans-serif',
+                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                display: { xs: 'none', sm: 'block' },
+                transform: 'perspective(200px) rotateX(20deg)',
+                transformOrigin: 'center center',
+                filter: 'drop-shadow(2px 4px 6px rgba(0,0,0,0.3))'
+              }}
+            >
+              CashFlix
+            </Typography>
+          </Box>
+          
           {/* Test Mode Banner - like Hyperswitch */}
           <Chip
             label="You're in Test Mode"
@@ -75,9 +146,10 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, onSidebarToggle }) => {
             color="warning"
             size="small"
             sx={{ 
-              backgroundColor: 'warning.light',
-              color: 'warning.dark',
-              fontWeight: 500
+              backgroundColor: 'warning.main',
+              color: 'warning.contrastText',
+              fontWeight: 500,
+              borderColor: 'warning.main'
             }}
           />
         </Box>
@@ -93,6 +165,9 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, onSidebarToggle }) => {
           <IconButton color="inherit" size="large">
             <Notifications />
           </IconButton>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Profile Menu */}
           <IconButton

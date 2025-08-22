@@ -104,7 +104,13 @@ const PaymentsFilters: React.FC<PaymentsFiltersProps> = ({
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3,
+        backgroundColor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
+      }}>
         {/* Search Bar */}
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
           <TextField

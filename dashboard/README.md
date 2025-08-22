@@ -1,223 +1,103 @@
 # Payment Gateway Dashboard
 
-Modern ve kullanıcı dostu merchant dashboard'u - Hyperswitch benzeri tasarım ile.
+A modern React dashboard for managing payment gateway operations, built with Material-UI and TypeScript.
 
-## 🚀 Özellikler
+## Features
 
-### ✅ Tamamlanmış Özellikler
-- **🔐 Authentication System** - Email/Password + API Key
-- **📊 Dashboard Layout** - Hyperswitch benzeri sidebar ve header
-- **💳 Payments Management** - Ödeme listesi ve detay sayfası
-- **🔍 Advanced Filtering** - Tarih, durum, ödeme yöntemi filtreleri
-- **📈 Statistics Cards** - Ödeme istatistikleri (All, Succeeded, Failed, etc.)
-- **🎯 Payment Detail View** - Summary, About Payment, Events & Logs
-- **📱 Responsive Design** - Mobile-first yaklaşım
-- **🎨 Material-UI Integration** - Modern UI bileşenleri
+- **Authentication**: Secure login system with protected routes
+- **Process Payments**: Complete payment processing workflow
+- **Payment Management**: View and manage all payments
+- **Customer Management**: Track customer information and history
+- **Refund Management**: Process and track refunds
+- **Responsive Design**: Mobile-friendly interface
 
-### 🔄 Mock Data Kullanımı
-Şu anda sistem mock data ile çalışıyor. Backend API'leri hazır olduğunda kolayca entegre edilebilir.
+## Getting Started
 
-## 🛠️ Teknoloji Stack
+### Prerequisites
 
-- **React 18** + **TypeScript**
-- **Material-UI v7** (MUI)
-- **React Router v7** (Routing)
-- **Axios** (HTTP Client)
-- **Date-fns** (Date utilities)
-- **React Query** (gelecekte API state management için)
+- Node.js (v14 or higher)
+- npm or yarn
 
-## 📋 Kurulum
+### Installation
 
-### 1. Bağımlılıkları Yükle
-```bash
-cd dashboard
-npm install
-```
+1. Navigate to the dashboard directory:
+   ```bash
+   cd dashboard
+   ```
 
-### 2. Geliştirme Sunucusunu Başlat
-```bash
-npm start
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Dashboard çalışacak: `http://localhost:3000`
+3. Start the development server:
+   ```bash
+   npm start
+   ```
 
-### 3. Demo Giriş Bilgileri
-```
-Email: merchant@test.com
-Password: password
-```
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## 📁 Proje Yapısı
+### Demo Credentials
+
+- **Email**: admin@example.com
+- **Password**: password
+
+## Project Structure
 
 ```
 dashboard/
 ├── src/
-│   ├── components/           # UI Bileşenleri
-│   │   ├── auth/            # Authentication bileşenleri
-│   │   ├── common/          # Ortak bileşenler (StatusChip, etc.)
-│   │   ├── layout/          # Layout bileşenleri (Sidebar, Header)
-│   │   └── payments/        # Payment özel bileşenleri
-│   ├── contexts/            # React Context'ler
-│   │   └── AuthContext.tsx  # Authentication state management
-│   ├── pages/               # Sayfa bileşenleri
-│   │   ├── DashboardHome.tsx
-│   │   ├── PaymentsPage.tsx
-│   │   └── PaymentDetailPage.tsx
-│   ├── services/            # API servisleri
-│   │   ├── authApi.ts       # Authentication API
-│   │   └── dashboardApi.ts  # Dashboard API
-│   ├── types/               # TypeScript type tanımları
-│   │   ├── auth.ts
-│   │   └── dashboard.ts
-│   └── App.tsx              # Ana uygulama
-├── public/
-└── package.json
+│   ├── components/
+│   │   ├── auth/           # Authentication components
+│   │   ├── common/         # Reusable UI components
+│   │   ├── layout/         # Layout and navigation
+│   │   └── payments/       # Payment-specific components
+│   ├── contexts/           # React contexts (Auth)
+│   ├── pages/              # Page components
+│   ├── services/           # API services
+│   └── types/              # TypeScript type definitions
+├── public/                 # Static assets
+└── package.json           # Dependencies and scripts
 ```
 
-## 🎯 Sayfa Yapısı
+## Available Scripts
 
-### 1. **Login Page** (`/login`)
-- Email/Password authentication
-- Demo credentials gösterimi
-- Session management
+- `npm start` - Start development server
+- `npm build` - Build for production
+- `npm test` - Run tests
+- `npm eject` - Eject from Create React App
 
-### 2. **Dashboard Home** (`/dashboard`)
-- Welcome message
-- Quick statistics
-- Quick actions
-- System status
+## Technologies Used
 
-### 3. **Payments List** (`/dashboard/payments`)
-- **Hyperswitch benzeri tasarım**
-- Statistics cards (All, Succeeded, Failed, Dropoffs, Cancelled)
-- Advanced filtering system
-- Payments table with actions
-- Pagination
-- Export functionality
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **Material-UI (MUI)** - Component library
+- **React Router** - Navigation
+- **Context API** - State management
 
-### 4. **Payment Detail** (`/dashboard/payments/:paymentId`)
-- **Summary section** - Amount, status, basic info
-- **About Payment section** - Profile, connector, method details
-- **Events and Logs accordion** - API events timeline ve request logs
-- **Tabs** - Log Details, Request, Response
-- Sync button functionality
+## Development
 
-## 🔗 API Entegrasyonu
+The dashboard is built with modern React patterns and follows best practices:
 
-### Mevcut Mock Endpoints:
-```typescript
-// Authentication
-authAPI.login(credentials)
+- Functional components with hooks
+- TypeScript for type safety
+- Material-UI for consistent design
+- Responsive design principles
+- Clean component architecture
 
-// Dashboard
-dashboardAPI.getPaymentStats(merchantId)
-dashboardAPI.getPayments(merchantId, filters, page, pageSize)
-dashboardAPI.getPaymentDetail(paymentId)
-dashboardAPI.getPaymentEvents(paymentId)
-dashboardAPI.syncPaymentStatus(paymentId)
-```
+## Backend Integration
 
-### Backend Entegrasyonu İçin Gerekli Endpoint'ler:
-```
-POST /api/v1/auth/login
-GET  /api/v1/merchant/{merchantId}/payments/stats
-GET  /api/v1/merchant/{merchantId}/payments
-GET  /api/v1/payments/{paymentId}
-GET  /api/v1/payments/{paymentId}/events
-POST /api/v1/payments/{paymentId}/sync
-```
+The dashboard is designed to work with the payment gateway backend. API endpoints are configured in the services directory and can be easily modified to match your backend implementation.
 
-## 🎨 UI/UX Özellikleri
+## Contributing
 
-### Hyperswitch Benzeri Tasarım:
-- **Sidebar Navigation** - Collapsible, hierarchical menu
-- **Test Mode Banner** - Üst kısımda uyarı
-- **Statistics Cards** - Renkli istatistik kartları
-- **Advanced Filters** - Expandable filter panel
-- **Data Table** - Sortable, actionable table
-- **Payment Detail** - Summary + About + Events layout
-- **Events Timeline** - Visual API event flow
-- **Logs Table** - Detailed request/response logs
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-### Responsive Design:
-- Mobile-first approach
-- Collapsible sidebar
-- Adaptive grid layouts
-- Touch-friendly interactions
+## License
 
-## 🔧 Konfigürasyon
+This project is part of the Payment Gateway system.
 
-### Environment Variables:
-```env
-REACT_APP_API_BASE_URL=http://localhost:8080/api
-REACT_APP_ENVIRONMENT=development
-```
-
-### Proxy Configuration:
-`package.json` içinde backend proxy:
-```json
-"proxy": "http://localhost:8080"
-```
-
-## 🚀 Production Build
-
-```bash
-npm run build
-```
-
-Build dosyaları `build/` klasöründe oluşur.
-
-## 🔮 Gelecek Özellikler
-
-### Phase 2 (Yakında):
-- [ ] **Refunds Page** - İade yönetimi
-- [ ] **Disputes Page** - İtiraz yönetimi  
-- [ ] **Customers Page** - Müşteri yönetimi
-- [ ] **Analytics Page** - Grafikler ve raporlar
-- [ ] **Webhooks Page** - Webhook konfigürasyonu
-- [ ] **Settings Page** - API key ve profil ayarları
-
-### Phase 3 (Gelişmiş):
-- [ ] **Real-time Updates** - WebSocket entegrasyonu
-- [ ] **Export Functionality** - CSV, PDF export
-- [ ] **Advanced Charts** - Recharts ile analytics
-- [ ] **Notification System** - Toast ve push notifications
-- [ ] **Multi-language Support** - i18n entegrasyonu
-- [ ] **Dark Mode** - Theme switching
-
-## 🧪 Test
-
-```bash
-npm test
-```
-
-## 📝 Notlar
-
-### Mock Data Kullanımı:
-- Authentication mock credentials ile çalışıyor
-- Payment data statik mock veriler
-- API calls simüle ediliyor (loading states ile)
-
-### Backend Entegrasyonu:
-- `src/services/` altındaki API fonksiyonları hazır
-- Mock implementation'ları gerçek API calls ile değiştirilebilir
-- Error handling ve loading states hazır
-
-### Hyperswitch Uyumluluğu:
-- UI/UX tam uyumlu
-- Component yapısı benzer
-- Data flow patterns uyumlu
-
-## 🤝 Katkıda Bulunma
-
-1. Feature branch oluştur
-2. Değişiklikleri commit et
-3. Pull request aç
-
-## 📞 İletişim
-
-Proje ile ilgili sorular için issue açabilirsiniz.
-
----
-
-**Not**: Bu dashboard, Hyperswitch'in UI/UX tasarımından ilham alınarak oluşturulmuştur ve mevcut Payment Gateway backend'i ile entegre edilmek üzere tasarlanmıştır.

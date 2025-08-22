@@ -22,6 +22,7 @@ import {
 } from '../types/dashboard';
 import PaymentsTable from '../components/payments/PaymentsTable';
 import PaymentsFilters from '../components/payments/PaymentsFilters';
+import StatsCards, { StatsCard } from '../components/common/StatsCards';
 
 const PaymentsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -219,6 +220,37 @@ const PaymentsPage: React.FC = () => {
     console.log('Exporting payments...');
   };
 
+  const getStatsCards = (): StatsCard[] => {
+    if (!stats) return [];
+    
+    return [
+      {
+        title: 'All',
+        value: stats.totalPayments,
+        subtitle: 'Total Payments',
+        color: 'primary'
+      },
+      {
+        title: 'Succeeded',
+        value: stats.successfulPayments,
+        subtitle: 'Successful',
+        color: 'success'
+      },
+      {
+        title: 'Failed',
+        value: stats.failedPayments,
+        subtitle: 'Failed',
+        color: 'error'
+      },
+      {
+        title: 'Pending',
+        value: stats.pendingPayments,
+        subtitle: 'Pending',
+        color: 'warning'
+      }
+    ];
+  };
+
   return (
     <Box>
       {/* Page Header */}
@@ -253,70 +285,8 @@ const PaymentsPage: React.FC = () => {
 
       {/* Stats Cards */}
       {stats && (
-        <Box sx={{ 
-          display: 'grid',
-          gridTemplateColumns: { 
-            xs: '1fr', 
-            sm: 'repeat(2, 1fr)', 
-            md: 'repeat(5, 1fr)' 
-          },
-          gap: 3,
-          mb: 3 
-        }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="primary">
-                All
-              </Typography>
-              <Typography variant="h4">
-                {stats.totalPayments}
-              </Typography>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="success.main">
-                Succeeded
-              </Typography>
-              <Typography variant="h4">
-                {stats.successfulPayments}
-              </Typography>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="error.main">
-                Failed
-              </Typography>
-              <Typography variant="h4">
-                {stats.failedPayments}
-              </Typography>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="warning.main">
-                Dropoffs
-              </Typography>
-              <Typography variant="h4">
-                {stats.pendingPayments}
-              </Typography>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="text.secondary">
-                Cancelled
-              </Typography>
-              <Typography variant="h4">
-                0
-              </Typography>
-            </CardContent>
-          </Card>
+        <Box sx={{ mb: 3 }}>
+          <StatsCards cards={getStatsCards()} />
         </Box>
       )}
 
