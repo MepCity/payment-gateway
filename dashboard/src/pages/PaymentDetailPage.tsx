@@ -524,6 +524,15 @@ const PaymentDetailPage: React.FC = () => {
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
+                    Transaction ID
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {payment.transactionId || 'N/A'}
+                  </Typography>
+                </Box>
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
                     Connector Transaction ID
                   </Typography>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>

@@ -269,6 +269,15 @@ const RefundDetailPage: React.FC = () => {
                 
                 <Box>
                   <Typography variant="body2" color="text.secondary">
+                    Transaction ID
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    {refund.transactionId || 'N/A'}
+                  </Typography>
+                </Box>
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
                     Gateway Refund ID
                   </Typography>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>

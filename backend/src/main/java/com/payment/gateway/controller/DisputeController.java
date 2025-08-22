@@ -29,8 +29,8 @@ public class DisputeController {
     public ResponseEntity<DisputeResponse> createDispute(
             @Valid @RequestBody DisputeRequest request,
             @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
-        log.info("Creating new dispute for payment: {}, transaction: {}", 
-                request.getPaymentId(), request.getTransactionId());
+        log.info("Creating new dispute for payment: {}, transaction: {}, customer: {}", 
+                request.getPaymentId(), request.getTransactionId(), request.getCustomerId());
 
         // API Key kontrolü
         if (!merchantAuthService.isValidApiKey(apiKey)) {
@@ -48,6 +48,16 @@ public class DisputeController {
             errorResponse.setSuccess(false);
             errorResponse.setMessage("Merchant bilgisi alınamadı.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        }
+
+        // Request'teki merchant ID ile API key'den gelen merchant ID eşleşiyor mu kontrol et
+        if (!request.getMerchantId().equals(merchantId)) {
+            log.warn("🚫 Merchant ID mismatch: requested {}, but API key belongs to {}", 
+                request.getMerchantId(), merchantId);
+            DisputeResponse errorResponse = new DisputeResponse();
+            errorResponse.setSuccess(false);
+            errorResponse.setMessage("Merchant ID mismatch. You can only create disputes for your own merchant account.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
         }
 
         DisputeResponse response = disputeService.createDisputeForMerchant(request, merchantId);

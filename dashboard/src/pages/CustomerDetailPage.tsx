@@ -1,51 +1,76 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
   Card,
   CardContent,
+  Paper,
   Button,
-  Chip,
-  Divider,
-  Alert,
-  CircularProgress,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
+  Avatar,
+  Alert,
+  CircularProgress,
   IconButton,
   Tooltip,
-  Avatar,
+  Chip
 } from '@mui/material';
 import {
   ArrowBack,
   Sync,
-  ContentCopy,
-  OpenInNew,
   Person,
   Email,
   Phone,
   LocationOn,
+  OpenInNew,
+  ContentCopy
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { CustomerDetail, CustomerStatus, RefundListItem } from '../types/dashboard';
+import dashboardAPI from '../services/dashboardApi';
+import { CustomerDetail, PaymentListItem, RefundListItem, CustomerStatus } from '../types/dashboard';
 import StatusChip from '../components/common/StatusChip';
-import { dashboardAPI } from '../services/dashboardApi';
+
+// Payment Intent interface for customer detail page
+interface PaymentIntent {
+  paymentId: string;
+  transactionId: string;
+  merchantId: string;
+  status: string;
+  amount: number;
+  currency: string;
+  activeAttemptId: string;
+  business: string;
+}
+
+// Payment Attempt interface for customer detail page
+interface PaymentAttempt {
+  paymentId: string;
+  transactionId: string;
+  merchantId: string;
+  status: string;
+  amount: number;
+  currency: string;
+  connector: string;
+  paymentMethod: string;
+  paymentType: string;
+}
 
 const CustomerDetailPage: React.FC = () => {
   const { customerId } = useParams<{ customerId: string }>();
   const navigate = useNavigate();
   
+  // States
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+  const [paymentIntents, setPaymentIntents] = useState<PaymentIntent[]>([]);
+  const [paymentAttempts, setPaymentAttempts] = useState<PaymentAttempt[]>([]);
+  const [refunds, setRefunds] = useState<RefundListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentIntents, setPaymentIntents] = useState<any[]>([]);
-  const [paymentAttempts, setPaymentAttempts] = useState<any[]>([]);
-  const [refunds, setRefunds] = useState<any[]>([]);
 
   const loadCustomerDetail = async () => {
     if (!customerId) return;
@@ -112,6 +137,7 @@ const CustomerDetailPage: React.FC = () => {
       // Set payment intents (all payments for this customer)
       setPaymentIntents(paymentsToUse.map((payment: any) => ({
         paymentId: payment.paymentId || payment.id,
+        transactionId: payment.transactionId || payment.transaction_id || payment.id || 'N/A',
         merchantId: payment.merchantId || 'TEST_MERCHANT',
         status: payment.status || 'PROCESSING', // Default status'u PROCESSING yap
         amount: payment.amount || 0,
@@ -123,6 +149,7 @@ const CustomerDetailPage: React.FC = () => {
       // Set payment attempts (successful payments)
       setPaymentAttempts(paymentsToUse.map((payment: any) => ({
         paymentId: payment.paymentId || payment.id,
+        transactionId: payment.transactionId || payment.transaction_id || payment.id || 'N/A',
         merchantId: payment.merchantId || 'TEST_MERCHANT',
         status: payment.status || 'PROCESSING', // Default status'u PROCESSING yap
         amount: payment.amount || 0,
@@ -424,6 +451,11 @@ const CustomerDetailPage: React.FC = () => {
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
+                  }}>Transaction ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
                   }}>Merchant Id</TableCell>
                   <TableCell sx={{ 
                     fontWeight: 600,
@@ -466,6 +498,7 @@ const CustomerDetailPage: React.FC = () => {
                       borderColor: 'divider'
                     }}>
                       <TableCell>{intent.paymentId}</TableCell>
+                      <TableCell>{intent.transactionId}</TableCell>
                       <TableCell>{intent.merchantId}</TableCell>
                       <TableCell>
                         <StatusChip status={intent.status as CustomerStatus} />
@@ -492,7 +525,7 @@ const CustomerDetailPage: React.FC = () => {
                     borderBottom: '1px solid',
                     borderColor: 'divider'
                   }}>
-                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No payment intents found for this customer
                       </Typography>
@@ -529,6 +562,11 @@ const CustomerDetailPage: React.FC = () => {
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
                   }}>Payment ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Transaction ID</TableCell>
                   <TableCell sx={{ 
                     fontWeight: 600,
                     color: 'text.primary',
@@ -580,6 +618,7 @@ const CustomerDetailPage: React.FC = () => {
                       borderColor: 'divider'
                     }}>
                       <TableCell>{attempt.paymentId}</TableCell>
+                      <TableCell>{attempt.transactionId}</TableCell>
                       <TableCell>{attempt.merchantId}</TableCell>
                       <TableCell>
                         <StatusChip status={attempt.status as CustomerStatus} />
@@ -607,7 +646,7 @@ const CustomerDetailPage: React.FC = () => {
                     borderBottom: '1px solid',
                     borderColor: 'divider'
                   }}>
-                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No payment attempts found for this customer
                       </Typography>
@@ -653,6 +692,11 @@ const CustomerDetailPage: React.FC = () => {
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
+                  }}>Transaction ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
                   }}>Status</TableCell>
                   <TableCell sx={{ 
                     fontWeight: 600,
@@ -691,6 +735,7 @@ const CustomerDetailPage: React.FC = () => {
                     }}>
                       <TableCell>{refund.refundId}</TableCell>
                       <TableCell>{refund.paymentId}</TableCell>
+                      <TableCell>{refund.transactionId}</TableCell>
                       <TableCell>
                         <StatusChip status={refund.status} />
                       </TableCell>
@@ -716,7 +761,7 @@ const CustomerDetailPage: React.FC = () => {
                     borderBottom: '1px solid',
                     borderColor: 'divider'
                   }}>
-                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No refunds found for this customer
                       </Typography>

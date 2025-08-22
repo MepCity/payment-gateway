@@ -54,6 +54,7 @@ export interface DisputeListItem {
   disputeId: string;
   paymentId: string;
   merchantId: string;
+  customerId: string;
   amount: number;
   currency: string;
   status: DisputeStatus;
@@ -313,6 +314,7 @@ export enum CustomerStatus {
 export interface CustomerDetail {
   id: number;
   customerId: string;
+  transactionId?: string;
   customerName: string;
   email: string;
   phoneCountryCode?: string;

@@ -125,6 +125,7 @@ const RefundsTable: React.FC<RefundsTableProps> = ({
               <TableRow>
                 <TableCell>Refund ID</TableCell>
                 <TableCell>Payment ID</TableCell>
+                <TableCell>Transaction ID</TableCell>
                 <TableCell>Customer</TableCell>
                 <TableCell>Amount</TableCell>
                 <TableCell>Status</TableCell>
@@ -145,6 +146,12 @@ const RefundsTable: React.FC<RefundsTableProps> = ({
                   <TableCell>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                       {refund.paymentId}
+                    </Typography>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      {refund.transactionId}
                     </Typography>
                   </TableCell>
                   

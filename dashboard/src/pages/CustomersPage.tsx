@@ -201,6 +201,7 @@ const CustomersPage: React.FC = () => {
                   <TableRow>
                     <TableCell>S.No</TableCell>
                     <TableCell>Customer ID</TableCell>
+                    <TableCell>Transaction ID</TableCell>
                     <TableCell>Customer Name</TableCell>
                     <TableCell>Email</TableCell>
                     <TableCell>Phone</TableCell>
@@ -237,6 +238,27 @@ const CustomersPage: React.FC = () => {
                             <CopyIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
+                      </Box>
+                    </TableCell>
+                    
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                          {customer.transactionId || 'N/A'}
+                        </Typography>
+                        {customer.transactionId && customer.transactionId !== 'N/A' && (
+                          <Tooltip title="Copy">
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyToClipboard(customer.transactionId!);
+                              }}
+                            >
+                              <CopyIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     </TableCell>
                     

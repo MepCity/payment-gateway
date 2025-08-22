@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.payment.gateway.service.AuditService;
 import com.payment.gateway.model.AuditLog;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.payment.gateway.repository.PaymentRepository;
+import com.payment.gateway.model.Payment;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,6 +38,7 @@ public class DisputeService {
     private final DisputeRepository disputeRepository;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
+    private final PaymentRepository paymentRepository;
 
     public DisputeResponse createDispute(DisputeRequest request) {
         try {
@@ -89,16 +92,38 @@ public class DisputeService {
     }
 
     /**
+     * Customer'ın belirtilen merchant'a ait olup olmadığını kontrol et
+     */
+    private boolean isCustomerBelongsToMerchant(String customerId, String merchantId) {
+        try {
+            // Customer'ın bu merchant'a ait payment'ları var mı kontrol et
+            // Eğer customer'ın bu merchant'a ait payment'ı yoksa, customer bu merchant'a ait değil
+            List<Payment> customerPayments = paymentRepository.findByCustomerId(customerId);
+            return customerPayments.stream()
+                    .anyMatch(payment -> payment.getMerchantId().equals(merchantId));
+        } catch (Exception e) {
+            log.error("Error checking customer-merchant relationship: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Merchant ID ile kısıtlanmış dispute oluşturma
      */
     public DisputeResponse createDisputeForMerchant(DisputeRequest request, String merchantId) {
         try {
             // Payment'ın bu merchant'a ait olduğunu doğrula
-            // (Bu durumda request.getMerchantId() ile merchantId eşit olmalı)
             if (!request.getMerchantId().equals(merchantId)) {
                 log.warn("🚫 Merchant {} tried to create dispute for payment owned by {}", 
                     merchantId, request.getMerchantId());
                 return createErrorResponse("You can only create disputes for your own payments");
+            }
+
+            // Customer'ın bu merchant'a ait olup olmadığını kontrol et
+            if (!isCustomerBelongsToMerchant(request.getCustomerId(), merchantId)) {
+                log.warn("🚫 Merchant {} tried to create dispute for customer {} who doesn't belong to them", 
+                    merchantId, request.getCustomerId());
+                return createErrorResponse("Customer does not belong to your merchant account");
             }
 
             // Normal dispute oluşturma işlemini devam ettir

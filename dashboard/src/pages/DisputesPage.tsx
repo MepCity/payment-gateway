@@ -467,6 +467,7 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
               <TableRow>
                 <TableCell>Dispute ID</TableCell>
                 <TableCell>Payment ID</TableCell>
+                <TableCell>Customer ID</TableCell>
                 <TableCell>Tutar</TableCell>
                 <TableCell>Durum</TableCell>
                 <TableCell>Sebep</TableCell>
@@ -477,7 +478,7 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
             <TableBody>
               {disputes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body2" color="text.secondary" py={4}>
                       Henüz dispute bulunamadı.
                     </Typography>
@@ -494,6 +495,11 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
                     <TableCell>
                       <Typography variant="body2" fontFamily="monospace">
                         {dispute.paymentId}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontFamily="monospace">
+                        {dispute.customerId}
                       </Typography>
                     </TableCell>
                     <TableCell>

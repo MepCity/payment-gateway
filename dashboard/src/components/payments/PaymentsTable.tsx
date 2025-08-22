@@ -114,6 +114,11 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
               fontWeight: 600,
               color: 'text.primary',
               backgroundColor: 'background.paper'
+            }}>Transaction ID</TableCell>
+            <TableCell sx={{ 
+              fontWeight: 600,
+              color: 'text.primary',
+              backgroundColor: 'background.paper'
             }}>Connector</TableCell>
             <TableCell sx={{ 
               fontWeight: 600,
@@ -173,6 +178,21 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
                     {formatDate(payment.createdAt)}
                   </Typography>
                 </Box>
+              </TableCell>
+
+              <TableCell>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                  {payment.transactionId || 'N/A'}
+                </Typography>
+              </TableCell>
+
+              <TableCell>
+                <Chip
+                  label="NA"
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderRadius: 1 }}
+                />
               </TableCell>
 
               <TableCell>

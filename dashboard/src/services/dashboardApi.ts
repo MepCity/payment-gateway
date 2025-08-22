@@ -97,7 +97,13 @@ export const dashboardAPI = {
       console.log('📊 Getting customer payments for customer:', customerId, 'merchant:', merchantId);
       
       const response = await dashboardApiClient.get(`/v1/payments/customer/${customerId}`);
-      return response.data;
+      const payments = response.data;
+      
+      // Ensure transactionId is properly mapped
+      return payments.map((payment: any) => ({
+        ...payment,
+        transactionId: payment.transactionId || payment.transaction_id || payment.id || 'N/A'
+      }));
     } catch (error) {
       console.error('Get customer payments error:', error);
       return [];
@@ -122,6 +128,7 @@ export const dashboardAPI = {
             customerMap.set(payment.customerId, {
               id: Date.now() + Math.random(), // Unique ID
               customerId: payment.customerId,
+              transactionId: payment.transactionId || 'N/A',
               customerName: payment.customerName || payment.cardHolderName || 'Unknown Customer',
               email: payment.customerEmail || 'no-email@example.com',
               phone: payment.customerPhone || 'N/A',
@@ -140,6 +147,10 @@ export const dashboardAPI = {
             const existingCustomer = customerMap.get(payment.customerId);
             existingCustomer.totalPayments += 1;
             existingCustomer.totalAmount += (payment.amount || 0);
+            // Update transactionId if it's not already set or if current one is 'N/A'
+            if (payment.transactionId && (existingCustomer.transactionId === 'N/A' || !existingCustomer.transactionId)) {
+              existingCustomer.transactionId = payment.transactionId;
+            }
             if (payment.createdAt && new Date(payment.createdAt) > new Date(existingCustomer.lastPaymentAt)) {
               existingCustomer.lastPaymentAt = payment.createdAt;
             }
