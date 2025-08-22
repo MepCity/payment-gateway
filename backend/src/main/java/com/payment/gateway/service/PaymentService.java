@@ -208,6 +208,25 @@ public class PaymentService {
         }
     }
     
+    /**
+     * Merchant ID ile kısıtlanmış payment arama
+     */
+    public PaymentResponse getPaymentByIdForMerchant(Long id, String merchantId) {
+        Optional<Payment> payment = paymentRepository.findById(id);
+        if (payment.isPresent()) {
+            Payment p = payment.get();
+            // Merchant ID kontrolü
+            if (!p.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}",
+                    merchantId, id, p.getMerchantId());
+                return createErrorResponse("Payment not found or access denied");
+            }
+            return createPaymentResponse(p, "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with ID: " + id);
+        }
+    }
+
     public PaymentResponse getPaymentByTransactionId(String transactionId) {
         Optional<Payment> payment = paymentRepository.findByTransactionId(transactionId);
         if (payment.isPresent()) {
@@ -216,7 +235,26 @@ public class PaymentService {
             return createErrorResponse("Payment not found with transaction ID: " + transactionId);
         }
     }
-    
+
+    /**
+     * Merchant ID ile kısıtlanmış transaction ID ile payment arama
+     */
+    public PaymentResponse getPaymentByTransactionIdForMerchant(String transactionId, String merchantId) {
+        Optional<Payment> payment = paymentRepository.findByTransactionId(transactionId);
+        if (payment.isPresent()) {
+            Payment p = payment.get();
+            // Merchant ID kontrolü
+            if (!p.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}",
+                    merchantId, transactionId, p.getMerchantId());
+                return createErrorResponse("Payment not found or access denied");
+            }
+            return createPaymentResponse(p, "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with transaction ID: " + transactionId);
+        }
+    }
+
     public PaymentResponse getPaymentByPaymentId(String paymentId) {
         Optional<Payment> payment = paymentRepository.findByPaymentId(paymentId);
         if (payment.isPresent()) {
@@ -225,7 +263,26 @@ public class PaymentService {
             return createErrorResponse("Payment not found with payment ID: " + paymentId);
         }
     }
-    
+
+    /**
+     * Merchant ID ile kısıtlanmış payment ID ile payment arama
+     */
+    public PaymentResponse getPaymentByPaymentIdForMerchant(String paymentId, String merchantId) {
+        Optional<Payment> payment = paymentRepository.findByPaymentId(paymentId);
+        if (payment.isPresent()) {
+            Payment p = payment.get();
+            // Merchant ID kontrolü
+            if (!p.getMerchantId().equals(merchantId)) {
+                log.warn("🚫 Merchant {} tried to access payment {} owned by {}",
+                    merchantId, paymentId, p.getMerchantId());
+                return createErrorResponse("Payment not found or access denied");
+            }
+            return createPaymentResponse(p, "Payment retrieved successfully", true);
+        } else {
+            return createErrorResponse("Payment not found with payment ID: " + paymentId);
+        }
+    }
+
     public List<PaymentResponse> getAllPayments() {
         List<Payment> payments = paymentRepository.findAll();
         return payments.stream()
@@ -246,7 +303,18 @@ public class PaymentService {
                 .map(payment -> createPaymentResponse(payment, null, true))
                 .collect(Collectors.toList());
     }
-    
+
+    /**
+     * Merchant ID ile kısıtlanmış customer payment arama
+     */
+    public List<PaymentResponse> getPaymentsByCustomerIdForMerchant(String customerId, String merchantId) {
+        List<Payment> payments = paymentRepository.findByCustomerId(customerId);
+        return payments.stream()
+                .filter(payment -> payment.getMerchantId().equals(merchantId)) // Sadece bu merchant'ın payment'ları
+                .map(payment -> createPaymentResponse(payment, null, true))
+                .collect(Collectors.toList());
+    }
+
     public List<PaymentResponse> getPaymentsByStatus(Payment.PaymentStatus status) {
         List<Payment> payments = paymentRepository.findByStatus(status);
         return payments.stream()
@@ -310,17 +378,17 @@ public class PaymentService {
             return createErrorResponse("Payment not found with ID: " + id);
         }
     }
-    
+
     public PaymentResponse refundPayment(Long id) {
         Optional<Payment> paymentOpt = paymentRepository.findById(id);
         if (paymentOpt.isPresent()) {
             Payment payment = paymentOpt.get();
-            
+
             if (payment.getStatus() == Payment.PaymentStatus.COMPLETED) {
                 payment.setStatus(Payment.PaymentStatus.REFUNDED);
                 payment.setGatewayResponse("Payment refunded");
                 Payment updatedPayment = paymentRepository.save(payment);
-                
+
                 // Audit log - Payment refund
                 auditService.logEvent(
                     auditService.createEvent()
@@ -336,7 +404,7 @@ public class PaymentService {
                         .complianceTag("PCI_DSS")
                         .complianceTag("GDPR")
                 );
-                
+
                 log.info("Payment refunded successfully with ID: {}", id);
                 return createPaymentResponse(updatedPayment, "Payment refunded successfully", true);
             } else {
@@ -433,7 +501,7 @@ public class PaymentService {
     private String generatePaymentId() {
         return "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
-    
+
     private Payment.PaymentStatus processPaymentThroughGateway(PaymentRequest request, Payment payment) {
         log.info("Processing payment through gateway for payment: {}", payment.getPaymentId());
         
@@ -750,13 +818,21 @@ public class PaymentService {
                 String status = parts[1];
                 String message = parts[2];
                 
+                log.info("Parsed webhook data - PaymentId: {}, Status: {}, Message: {}", paymentId, status, message);
+
                 // Payment ID ile payment'ı bul
                 Optional<Payment> paymentOpt = paymentRepository.findByPaymentId(paymentId);
                 if (paymentOpt.isPresent()) {
                     Payment payment = paymentOpt.get();
                     
+                    log.info("Found payment: {} with current status: {}", payment.getPaymentId(), payment.getStatus());
+
                     // Banka'dan gelen status'a göre güncelle
                     Payment.PaymentStatus newStatus = mapBankStatusToPaymentStatus(status);
+                    Payment.PaymentStatus oldStatus = payment.getStatus();
+
+                    log.info("Updating payment status from {} to {} via {} webhook", oldStatus, newStatus, bankType);
+
                     payment.setStatus(newStatus);
                     payment.setGatewayResponse(bankType + " webhook: " + message);
                     payment.setUpdatedAt(LocalDateTime.now());
@@ -764,10 +840,12 @@ public class PaymentService {
                     // Eğer payment tamamlandıysa tarih ekle
                     if (newStatus == Payment.PaymentStatus.COMPLETED) {
                         payment.setCompletedAt(LocalDateTime.now());
+                        log.info("Payment {} completed at: {}", payment.getPaymentId(), payment.getCompletedAt());
                     }
                     
                     paymentRepository.save(payment);
-                    
+                    log.info("Payment {} status updated successfully in database", payment.getPaymentId());
+
                     // Audit logging
                     auditService.logEvent(
                         auditService.createEvent()
@@ -778,13 +856,14 @@ public class PaymentService {
                             .resourceType("PAYMENT")
                             .resourceId(payment.getPaymentId())
                             .additionalData("bankType", bankType)
+                            .additionalData("oldStatus", oldStatus.toString())
                             .additionalData("newStatus", newStatus.toString())
                             .additionalData("webhookMessage", message)
                             .complianceTag("PCI_DSS")
                     );
                     
-                    log.info("Payment status updated via {} webhook to {} for payment ID: {}", 
-                            bankType, newStatus, payment.getPaymentId());
+                    log.info("Payment status updated via {} webhook from {} to {} for payment ID: {}",
+                            bankType, oldStatus, newStatus, payment.getPaymentId());
                     
                     // Merchant'a webhook gönder (payment durumu değişti)
                     if (newStatus == Payment.PaymentStatus.COMPLETED) {
@@ -797,7 +876,7 @@ public class PaymentService {
                     log.warn("Payment not found for payment ID: {}", paymentId);
                 }
             } else {
-                log.error("Invalid webhook data format: {}", webhookData);
+                log.error("Invalid webhook data format: {} (expected: paymentId|status|message)", webhookData);
             }
             
         } catch (Exception e) {

@@ -40,6 +40,7 @@ public class PayoutService {
             payout.setPayoutId(payoutId);
             payout.setMerchantId(request.getMerchantId());
             payout.setCustomerId(request.getCustomerId());
+            payout.setPaymentId(request.getPaymentId());
             payout.setAmount(request.getAmount());
             payout.setCurrency(request.getCurrency());
             payout.setStatus(Payout.PayoutStatus.PENDING);
@@ -262,6 +263,77 @@ public class PayoutService {
         }
     }
     
+    /**
+     * Payment ID'ye göre payout durumunu günceller
+     */
+    public boolean updatePayoutStatusByPaymentId(String paymentId, String status, String message, String failureReason) {
+        try {
+            log.info("Updating payout status by payment ID: {}, new status: {}", paymentId, status);
+            
+            // Payment ID'ye göre payout'u bul
+            Optional<Payout> payoutOpt = payoutRepository.findByPaymentId(paymentId);
+            if (payoutOpt.isEmpty()) {
+                log.warn("Payout not found for payment ID: {}", paymentId);
+                return false;
+            }
+            
+            Payout payout = payoutOpt.get();
+            Payout.PayoutStatus newStatus = parsePayoutStatus(status);
+            
+            if (newStatus == null) {
+                log.error("Invalid payout status: {}", status);
+                return false;
+            }
+            
+            payout.setStatus(newStatus);
+            payout.setNotes(payout.getNotes() + " - " + message);
+            
+            if (newStatus == Payout.PayoutStatus.COMPLETED) {
+                payout.setSettledAt(LocalDateTime.now());
+            } else if (newStatus == Payout.PayoutStatus.PROCESSING) {
+                payout.setProcessedAt(LocalDateTime.now());
+            } else if (newStatus == Payout.PayoutStatus.FAILED) {
+                payout.setFailureReason(failureReason);
+            }
+            
+            payoutRepository.save(payout);
+            
+            log.info("Payout status updated successfully for payment ID: {} to status: {}", paymentId, newStatus);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Error updating payout status by payment ID: {}", paymentId, e);
+            return false;
+        }
+    }
+    
+    /**
+     * Payment ID'ye göre payout bilgilerini getirir
+     */
+    public Payout getPayoutByPaymentId(String paymentId) {
+        try {
+            Optional<Payout> payout = payoutRepository.findByPaymentId(paymentId);
+            return payout.orElse(null);
+        } catch (Exception e) {
+            log.error("Error retrieving payout by payment ID: {}", paymentId, e);
+            return null;
+        }
+    }
+    
+    /**
+     * String status'u PayoutStatus enum'ına çevirir
+     */
+    private Payout.PayoutStatus parsePayoutStatus(String status) {
+        if (status == null) return null;
+        
+        try {
+            return Payout.PayoutStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Unknown payout status: {}, returning null", status);
+            return null;
+        }
+    }
+    
     // Helper methods
     private String generatePayoutId() {
         return "POUT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -305,6 +377,7 @@ public class PayoutService {
         response.setPayoutId(payout.getPayoutId());
         response.setMerchantId(payout.getMerchantId());
         response.setCustomerId(payout.getCustomerId());
+        response.setPaymentId(payout.getPaymentId());
         response.setAmount(payout.getAmount());
         response.setCurrency(payout.getCurrency());
         response.setStatus(payout.getStatus());

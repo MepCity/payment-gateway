@@ -1,18 +1,48 @@
-# 🏦 Payment Gateway
+# 🏦 Payment Gateway - Merchant Authentication System
 
-Modern ve güvenli ödeme gateway sistemi - Türk bankalarının test ortamları ile uyumlu.
+Modern ve güvenli ödeme gateway sistemi - Merchant authentication ve veri izolasyonu ile.
 
 ## 🚀 Özellikler
 
 - ✅ **Spring Boot** backend API
 - ✅ **React + Material-UI** frontend
 - ✅ **PostgreSQL** veritabanı
+- ✅ **Merchant Authentication** sistemi
+- ✅ **API Key** bazlı yetkilendirme
+- ✅ **Merchant-based** veri izolasyonu
+- ✅ **JWT Token** yönetimi
 - ✅ **Webhook** sistemi
 - ✅ **Dispute** (itiraz) yönetimi
 - ✅ **Türk bankası test kartları** desteği
 - ✅ **Kart maskelleme** ve güvenlik
 - ✅ **BIN tespiti** ve kart markası algılama
 - ✅ **External test** yöntemi
+
+## 🔐 Merchant Authentication
+
+### Test Merchant Hesapları
+
+Sistem 3 adet test merchant hesabı ile birlikte gelir:
+
+| Merchant | Email | Password | API Key | Merchant ID |
+|----------|-------|----------|---------|-------------|
+| Test Merchant Company | test@merchant.com | password123 | pk_test_123456789 | TEST_MERCHANT |
+| Demo Online Store | demo@store.com | demo123 | pk_demo_abcdef123 | DEMO_STORE |
+| Sample Shop Ltd | contact@sample.com | sample456 | pk_sample_xyz789 | SAMPLE_SHOP |
+
+### Authentication Flow
+
+1. **Login**: Frontend'de merchant email/password ile giriş
+2. **JWT Token**: Backend JWT token ve API key döndürür
+3. **API Calls**: Tüm API çağrıları `X-API-Key` header'ı ile yapılır
+4. **Veri İzolasyonu**: Her merchant sadece kendi verilerini görebilir
+
+### Güvenlik Önlemleri
+
+- ✅ Tüm API endpointleri API key kontrolü yapar
+- ✅ Merchant'lar sadece kendi payment/refund/dispute verilerini görebilir
+- ✅ Cross-merchant veri erişimi engellenir
+- ✅ Audit logging ile tüm işlemler kayıt altına alınır
 
 ## 📁 Proje Yapısı
 
@@ -62,14 +92,18 @@ GRANT ALL PRIVILEGES ON DATABASE payment_gateway TO payment_user;
 ```bash
 cd backend
 ./mvnw clean install
+
+# Test verilerini yükle
+psql -U payment_user -d payment_gateway -f test_data.sql
+
 ./mvnw spring-boot:run
 ```
 
 Backend çalışacak: `http://localhost:8080`
 
-### 3. Frontend Kurulumu
+### 3. Frontend Kurulumu  
 ```bash
-cd frontend
+cd dashboard
 npm install
 npm start
 ```
@@ -78,13 +112,30 @@ Frontend çalışacak: `http://localhost:3000`
 
 ## 🧪 Test Etme
 
-### API Test (curl)
+### 1. Web Dashboard Testi
+1. `http://localhost:3000` adresine git
+2. Test merchant hesaplarından biriyle giriş yap:
+   - Email: `test@merchant.com` / Password: `password123`
+   - Email: `demo@store.com` / Password: `demo123`  
+   - Email: `contact@sample.com` / Password: `sample456`
+3. Dashboard'da merchant'a özel payment, refund, dispute verilerini gör
+
+### 2. API Test (curl)
 ```bash
-# Başarılı ödeme
-curl -X POST http://localhost:8080/api/v1/payments \
+# 1. Merchant Authentication
+curl -X POST http://localhost:8080/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "merchantId": "MERCH001",
+    "email": "test@merchant.com",
+    "password": "password123"
+  }'
+
+# 2. API Key ile Payment Test
+curl -X POST http://localhost:8080/v1/payments \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: pk_test_123456789" \
+  -d '{
+    "merchantId": "TEST_MERCHANT",
     "customerId": "CUST001",
     "amount": 100.00,
     "currency": "TRY",

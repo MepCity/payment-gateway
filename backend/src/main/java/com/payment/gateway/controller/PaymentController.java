@@ -79,10 +79,24 @@ public class PaymentController {
 
     // GET - Get payment by ID
     @GetMapping("/{id}")
-    public ResponseEntity<PaymentResponse> getPaymentById(@PathVariable Long id) {
+    public ResponseEntity<PaymentResponse> getPaymentById(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving payment with ID: {}", id);
 
-        PaymentResponse response = paymentService.getPaymentById(id);
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile payment get denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        PaymentResponse response = paymentService.getPaymentByIdForMerchant(id, merchantId);
 
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -93,10 +107,24 @@ public class PaymentController {
 
     // GET - Get payment by transaction ID
     @GetMapping("/transaction/{transactionId}")
-    public ResponseEntity<PaymentResponse> getPaymentByTransactionId(@PathVariable String transactionId) {
+    public ResponseEntity<PaymentResponse> getPaymentByTransactionId(
+            @PathVariable String transactionId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving payment with transaction ID: {}", transactionId);
 
-        PaymentResponse response = paymentService.getPaymentByTransactionId(transactionId);
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile payment get denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        PaymentResponse response = paymentService.getPaymentByTransactionIdForMerchant(transactionId, merchantId);
 
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -107,10 +135,24 @@ public class PaymentController {
     
     // GET - Get payment by payment ID
     @GetMapping("/payment/{paymentId}")
-    public ResponseEntity<PaymentResponse> getPaymentByPaymentId(@PathVariable String paymentId) {
+    public ResponseEntity<PaymentResponse> getPaymentByPaymentId(
+            @PathVariable String paymentId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving payment with payment ID: {}", paymentId);
-        
-        PaymentResponse response = paymentService.getPaymentByPaymentId(paymentId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile payment get denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        PaymentResponse response = paymentService.getPaymentByPaymentIdForMerchant(paymentId, merchantId);
         
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -119,30 +161,73 @@ public class PaymentController {
         }
     }
     
-    // GET - Get all payments
+    // GET - Get all payments for merchant
     @GetMapping
-    public ResponseEntity<List<PaymentResponse>> getAllPayments() {
-        log.info("Retrieving all payments");
+    public ResponseEntity<List<PaymentResponse>> getAllPayments(
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+        log.info("Retrieving all payments for merchant");
 
-        List<PaymentResponse> payments = paymentService.getAllPayments();
-        return ResponseEntity.ok(payments);
-    }
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile payments list denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
-    // GET - Get payments by merchant ID
-    @GetMapping("/merchant/{merchantId}")
-    public ResponseEntity<List<PaymentResponse>> getPaymentsByMerchantId(@PathVariable String merchantId) {
-        log.info("Retrieving payments for merchant: {}", merchantId);
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
         List<PaymentResponse> payments = paymentService.getPaymentsByMerchantId(merchantId);
         return ResponseEntity.ok(payments);
     }
 
-    // GET - Get payments by customer ID
+    // GET - Get payments by merchant ID (for admin use, requires merchant authentication)
+    @GetMapping("/merchant/{merchantId}")
+    public ResponseEntity<List<PaymentResponse>> getPaymentsByMerchantId(
+            @PathVariable String merchantId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+        log.info("Retrieving payments for merchant: {}", merchantId);
+
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile merchant payments denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant sadece kendi payment'larını görebilir
+        String requestingMerchantId = getMerchantIdFromApiKey(apiKey);
+        if (requestingMerchantId == null || !requestingMerchantId.equals(merchantId)) {
+            log.warn("🚫 Merchant {} tried to access payments of {}", requestingMerchantId, merchantId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<PaymentResponse> payments = paymentService.getPaymentsByMerchantId(merchantId);
+        return ResponseEntity.ok(payments);
+    }
+
+    // GET - Get payments by customer ID (merchant-restricted)
     @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<PaymentResponse>> getPaymentsByCustomerId(@PathVariable String customerId) {
+    public ResponseEntity<List<PaymentResponse>> getPaymentsByCustomerId(
+            @PathVariable String customerId,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
         log.info("Retrieving payments for customer: {}", customerId);
 
-        List<PaymentResponse> payments = paymentService.getPaymentsByCustomerId(customerId);
+        // API Key kontrolü
+        if (!merchantAuthService.isValidApiKey(apiKey)) {
+            log.warn("🚫 Geçersiz API key ile customer payments denemesi");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Merchant ID'yi API key'den al
+        String merchantId = getMerchantIdFromApiKey(apiKey);
+        if (merchantId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Sadece bu merchant'ın customerlarına ait payment'ları döndür
+        List<PaymentResponse> payments = paymentService.getPaymentsByCustomerIdForMerchant(customerId, merchantId);
         return ResponseEntity.ok(payments);
     }
 
@@ -272,7 +357,7 @@ public class PaymentController {
         }
     }
 
-  
+
 
 
     // ===== BANK WEBHOOK ENDPOINTS =====
@@ -335,14 +420,16 @@ public class PaymentController {
             if (!paymentOpt.isPresent()) {
                 Map<String, Object> errorResult = new HashMap<>();
                 errorResult.put("success", false);
-                errorResult.put("message", "Payment not found with ID: " + transactionId);
+                errorResult.put("message", "Payment not found with transactionId: " + transactionId);
                 return ResponseEntity.badRequest().body(errorResult);
             }
             
             Payment payment = paymentOpt.get();
             
-            // Webhook data formatı: paymentId|status|message
+            // Webhook data formatı: paymentId|status|message (paymentId kullan, transactionId değil!)
             String webhookData = payment.getPaymentId() + "|" + status + "|" + bankType + " payment processed successfully";
+
+            log.info("Processing webhook for payment: {} with data: {}", payment.getPaymentId(), webhookData);
             
             // PaymentService'deki webhook processing metodunu çağır
             paymentService.processBankPaymentWebhook(bankType, webhookData);
@@ -355,7 +442,9 @@ public class PaymentController {
             result.put("status", status);
             result.put("bankType", bankType);
             result.put("webhookData", webhookData);
-            
+            result.put("oldStatus", payment.getStatus());
+            result.put("newStatus", status);
+
             return ResponseEntity.ok(result);
             
         } catch (Exception e) {
@@ -405,18 +494,33 @@ public class PaymentController {
         return remoteAddr != null ? remoteAddr : "unknown";
     }
 
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 10) {
-            return cardNumber;
+    /**
+     * API key'den merchant ID'yi çıkart
+     */
+    private String getMerchantIdFromApiKey(String apiKey) {
+        if (apiKey == null) {
+            return null;
         }
-        
-        // BIN (first 6 digits) + masked middle + last 4 digits format
-        // Example: 4111111111111111 -> 411111******1111
-        String bin = cardNumber.substring(0, 6);
-        String lastFour = cardNumber.substring(cardNumber.length() - 4);
-        int middleLength = cardNumber.length() - 10; // Total - 6 (BIN) - 4 (last four)
-        String maskedMiddle = "*".repeat(middleLength);
-        
-        return bin + maskedMiddle + lastFour;
+
+        // Test mode - her test API key'ini farklı merchant'a eşle
+        if (apiKey.startsWith("pk_test_") || apiKey.equals("pk_merch001_live_abc123")) {
+            switch (apiKey) {
+                case "pk_test_merchant1":
+                    return "TEST_MERCHANT";
+                case "pk_test_merchant2":
+                    return "TEST_MERCHANT_2";
+                case "pk_test_merchant3":
+                    return "TEST_MERCHANT_3";
+                case "pk_merch001_live_abc123":
+                    return "MERCH001"; // Bu API key için MERCH001 döndür
+                default:
+                    return "TEST_MERCHANT"; // Default test merchant
+            }
+        }
+
+        // Production'da merchant'ı API key ile bulup merchant ID'yi döneriz
+        return merchantAuthService.getMerchantByApiKey(apiKey)
+                .map(merchant -> merchant.getMerchantId())
+                .orElse(null);
     }
 }

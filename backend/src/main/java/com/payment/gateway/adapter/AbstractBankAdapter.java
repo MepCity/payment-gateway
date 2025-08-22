@@ -133,7 +133,7 @@ public abstract class AbstractBankAdapter implements BankAdapter {
         }
         return cardNumber.substring(0, 6);
     }
-  
+
     
     /**
      * HTTP Basic Auth header oluştur

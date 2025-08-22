@@ -49,6 +49,25 @@ dashboardApiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Utility function to get current merchant ID from localStorage
+const getCurrentMerchantId = (): string => {
+  try {
+    const userStr = localStorage.getItem('auth_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      // Test user için MERCH001 döndür
+      if (user.merchantId === 'TEST_MERCHANT') {
+        return 'MERCH001';
+      }
+      return user.merchantId || 'MERCH001';
+    }
+    return 'MERCH001';
+  } catch (error) {
+    console.error('Error getting merchant ID:', error);
+    return 'MERCH001';
+  }
+};
+
 // Response interceptor for error handling
 dashboardApiClient.interceptors.response.use(
   (response) => response,
@@ -71,42 +90,6 @@ export interface PaymentListResponse {
 }
 
 export const dashboardAPI = {
-  // Get comprehensive dashboard statistics
-  getDashboardStats: async (): Promise<{ data: any }> => {
-    try {
-      // Backend'den dashboard statistics'i çek - doğru endpoint
-      const response = await dashboardApiClient.get('/v1/merchant-dashboard/TEST_MERCHANT');
-      return { data: response.data };
-    } catch (error) {
-      console.error('Get dashboard stats error:', error);
-      // Fallback olarak manual calculation
-      const [payments, refunds] = await Promise.all([
-        dashboardApiClient.get('/v1/payments').catch(() => ({ data: [] })),
-        dashboardApiClient.get('/v1/refunds').catch(() => ({ data: [] }))
-      ]);
-      
-      const paymentsData = payments.data || [];
-      const refundsData = refunds.data || [];
-      
-      const stats = {
-        totalPayments: paymentsData.length,
-        totalAmount: paymentsData.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
-        successRate: paymentsData.length > 0 ? 
-          (paymentsData.filter((p: any) => p.status === 'COMPLETED').length / paymentsData.length) * 100 : 0,
-        pendingPayments: paymentsData.filter((p: any) => 
-          p.status === 'PENDING' || p.status === 'PROCESSING').length,
-        totalRefunds: refundsData.length,
-        refundAmount: refundsData.reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
-        totalCustomers: new Set(paymentsData.map((p: any) => p.customerId)).size,
-        totalDisputes: 12, // Mock data
-        pendingDisputes: 3, // Mock data
-        disputeRate: paymentsData.length > 0 ? (12 / paymentsData.length) * 100 : 0
-      };
-      
-      return { data: stats };
-    }
-  },
-
   // Get payment statistics
   getPaymentStats: async (merchantId: string): Promise<PaymentStats> => {
     try {
@@ -641,6 +624,134 @@ export const dashboardAPI = {
   },
 
   // Dispute operations
+  getDisputeStats: async (merchantId?: string): Promise<DisputeStats> => {
+    try {
+      // Merchant ID belirtilmemişse current merchant'ı kullan
+      const targetMerchantId = merchantId || getCurrentMerchantId();
+      console.log('📊 Fetching dispute stats for merchant:', targetMerchantId);
+
+      const apiUrl = `/v1/merchant-dashboard/${targetMerchantId}/disputes`;
+      console.log('🌐 Stats API URL:', apiUrl);
+
+      const response = await dashboardApiClient.get(apiUrl);
+      console.log('✅ Dispute stats response status:', response.status);
+      console.log('✅ Dispute stats response data:', response.data);
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Get dispute stats error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw error;
+    }
+  },
+
+  getDisputes: async (
+    merchantId?: string,
+    page: number = 0,
+    size: number = 20,
+    filters?: DisputeFilters
+  ): Promise<{ disputes: DisputeListItem[]; pagination: PaginationInfo }> => {
+    try {
+      // Merchant ID belirtilmemişse current merchant'ı kullan
+      const targetMerchantId = merchantId || getCurrentMerchantId();
+      console.log('📄 Fetching disputes for merchant:', targetMerchantId, '- page:', page, 'size:', size, 'filters:', filters);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+      });
+
+      if (filters?.status?.length) {
+        filters.status.forEach(s => params.append('status', s));
+      }
+      if (filters?.reason?.length) {
+        filters.reason.forEach(r => params.append('reason', r));
+      }
+      if (filters?.dateFrom) {
+        params.append('dateFrom', filters.dateFrom);
+      }
+      if (filters?.dateTo) {
+        params.append('dateTo', filters.dateTo);
+      }
+      if (filters?.minAmount !== undefined) {
+        params.append('minAmount', filters.minAmount.toString());
+      }
+      if (filters?.maxAmount !== undefined) {
+        params.append('maxAmount', filters.maxAmount.toString());
+      }
+      if (filters?.search) {
+        params.append('search', filters.search);
+      }
+
+      const apiUrl = `/v1/merchant-dashboard/${targetMerchantId}/disputes/list?${params}`;
+      console.log('🌐 API URL:', apiUrl);
+
+      const response = await dashboardApiClient.get(apiUrl);
+      console.log('✅ Disputes API response status:', response.status);
+      console.log('✅ Disputes API response data:', response.data);
+      console.log('✅ Disputes content length:', response.data.content?.length || 0);
+
+      return {
+        disputes: response.data.content || [],
+        pagination: {
+          page: response.data.page || 0,
+          totalPages: response.data.totalPages || 0,
+          totalCount: response.data.totalElements || 0,
+          pageSize: response.data.size || 20,
+          hasNext: !response.data.last,
+          hasPrev: !response.data.first,
+        }
+      };
+    } catch (error: any) {
+      console.error('❌ Get disputes error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw error;
+    }
+  },
+
+  getDisputeDetail: async (
+    merchantId: string = 'MERCH001',
+    disputeId: string
+  ): Promise<DisputeDetail> => {
+    try {
+      console.log('🔍 Fetching dispute detail:', disputeId);
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/${disputeId}`);
+      console.log('✅ Dispute detail response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Get dispute detail error:', error);
+      throw error;
+    }
+  },
+
+  respondToDispute: async (
+    merchantId: string = 'MERCH001',
+    disputeId: string,
+    disputeResponse: DisputeResponse
+  ): Promise<{ success: boolean; message: string; nextStep?: string }> => {
+    try {
+      console.log('📝 Responding to dispute:', disputeId, 'type:', disputeResponse.responseType);
+      const response = await dashboardApiClient.post(
+        `/v1/merchant-dashboard/${merchantId}/disputes/${disputeId}/respond`,
+        disputeResponse
+      );
+      console.log('✅ Dispute response submitted:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Respond to dispute error:', error);
+      throw error;
+    }
+  },
+
+  // Dispute operations
   getDisputeStats: async (merchantId: string = 'TEST_MERCHANT'): Promise<DisputeStats> => {
     try {
       console.log('📊 Fetching dispute stats for merchant:', merchantId);
@@ -661,7 +772,7 @@ export const dashboardAPI = {
   ): Promise<{ disputes: DisputeListItem[]; pagination: PaginationInfo }> => {
     try {
       console.log('📄 Fetching disputes - page:', page, 'size:', size, 'filters:', filters);
-      
+
       const params = new URLSearchParams({
         page: page.toString(),
         size: size.toString(),

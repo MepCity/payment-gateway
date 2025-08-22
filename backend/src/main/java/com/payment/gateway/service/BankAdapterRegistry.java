@@ -55,7 +55,7 @@ public class BankAdapterRegistry {
         for (BankAdapter adapter : allAdapters) {
             if (adapter.isConfigured() && adapter.supportsBin(cardNumber)) {
                 log.info("Found adapter for card {}: {} ({})", 
-                        CardUtils.maskCardNumber(cardNumber), 
+                        CardUtils.maskCardNumber(cardNumber),
                         adapter.getBankName(),
                         adapter.getRequestFormat());
                 return Optional.of(adapter);

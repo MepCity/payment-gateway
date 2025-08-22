@@ -57,9 +57,9 @@ const CustomerDetailPage: React.FC = () => {
       // Backend'den real-time payment verilerini çek
       const paymentsResponse = await dashboardAPI.getPayments('TEST_MERCHANT');
       const allPayments = paymentsResponse.payments || [];
-      
+
       // Bu customer'a ait payment'ları filtrele
-      const customerPayments = allPayments.filter((payment: any) => 
+      const customerPayments = allPayments.filter((payment: any) =>
         payment.customerId === customerId
       );
       
@@ -116,7 +116,7 @@ const CustomerDetailPage: React.FC = () => {
         status: p.status,
         createdAt: p.createdAt
       })));
-      
+
       // Set payment intents (all payments for this customer with real status from backend)
       setPaymentIntents(sortedPayments.map((payment: any) => ({
         paymentId: payment.paymentId || payment.id,
@@ -144,7 +144,7 @@ const CustomerDetailPage: React.FC = () => {
       
       console.log('Payment intents with real status:', paymentIntents);
       console.log('Payment attempts with real status:', paymentAttempts);
-      
+
       // Get refunds for this customer's payments using the same API as RefundsPage
       try {
         const refundsResponse = await dashboardAPI.getRefunds('TEST_MERCHANT');
@@ -152,7 +152,7 @@ const CustomerDetailPage: React.FC = () => {
         
         // Filter refunds that belong to this customer's payments
         const customerRefunds = allRefunds.filter((refund: RefundListItem) => {
-          return sortedPayments.some((payment: any) => 
+          return sortedPayments.some((payment: any) =>
             payment.paymentId === refund.paymentId || payment.id === refund.paymentId
           );
         });
@@ -278,7 +278,7 @@ const CustomerDetailPage: React.FC = () => {
         >
           Sync
         </Button>
-        
+
         {/* Debug button for testing real-time data */}
         <Button
           variant="outlined"
@@ -287,27 +287,27 @@ const CustomerDetailPage: React.FC = () => {
               console.log('🔍 Debug: Fetching real-time payments...');
               const paymentsResponse = await dashboardAPI.getPayments('TEST_MERCHANT');
               console.log('🔍 Debug: All payments from backend:', paymentsResponse.payments);
-              
-              const customerPayments = paymentsResponse.payments.filter((p: any) => 
+
+              const customerPayments = paymentsResponse.payments.filter((p: any) =>
                 p.customerId === customerId
               );
               console.log('🔍 Debug: Customer payments:', customerPayments);
               console.log('🔍 Debug: Payment statuses:', customerPayments.map((p: any) => p.status));
-              
+
               // Sort and show dates
               const sortedPayments = customerPayments.sort((a: any, b: any) => {
                 const dateA = new Date(a.createdAt || 0);
                 const dateB = new Date(b.createdAt || 0);
                 return dateB.getTime() - dateA.getTime();
               });
-              
+
               console.log('🔍 Debug: Sorted payments (newest first):', sortedPayments.map((p: any) => ({
                 paymentId: p.paymentId,
                 status: p.status,
                 createdAt: p.createdAt,
                 formattedDate: formatDate(p.createdAt)
               })));
-              
+
               // Reload data
               await loadCustomerDetail();
             } catch (error) {
@@ -318,7 +318,7 @@ const CustomerDetailPage: React.FC = () => {
         >
           Debug Data
         </Button>
-        
+
         {/* Create test payments button */}
         <Button
           variant="outlined"
@@ -332,11 +332,11 @@ const CustomerDetailPage: React.FC = () => {
                   'Content-Type': 'application/json',
                 }
               });
-              
+
               if (response.ok) {
                 const result = await response.json();
                 console.log('🧪 Test payments created:', result);
-                
+
                 // Reload customer data to show new payments
                 await loadCustomerDetail();
               } else {
@@ -528,12 +528,12 @@ const CustomerDetailPage: React.FC = () => {
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
                   }}>Currency</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
                   }}>Created Date</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
@@ -648,7 +648,7 @@ const CustomerDetailPage: React.FC = () => {
                     color: 'text.primary',
                     backgroundColor: 'background.paper'
                   }}>Created Date</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontWeight: 600,
                     color: 'text.primary',
                     backgroundColor: 'background.paper'

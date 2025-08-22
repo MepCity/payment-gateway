@@ -1,5 +1,7 @@
 package com.payment.gateway.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.payment.gateway.config.DateTimeSerializer;
 import com.payment.gateway.model.Dispute;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -27,23 +29,10 @@ public class DisputeResponse {
     private String evidence;
     private String gatewayResponse;
     private String gatewayDisputeId;
-    
     private LocalDateTime disputeDate;
-    
     private LocalDateTime resolutionDate;
-    
     private LocalDateTime createdAt;
-    
     private LocalDateTime updatedAt;
     private String message;
     private boolean success;
-    
-    // Bank dispute için ek alanlar
-    private String bankDisputeId;
-    
-    private LocalDateTime merchantResponseDeadline;
-    
-    private LocalDateTime adminEvaluationDeadline;
-    private String merchantResponse;
-    private String adminNotes;
 }

@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { CustomerDetail, CustomerStatus } from '../types/dashboard';
 import StatusChip from '../components/common/StatusChip';
+import { dashboardAPI } from '../services/dashboardApi';
 
 const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,14 +45,19 @@ const CustomersPage: React.FC = () => {
     setError(null);
     
     try {
-      // TODO: Replace with real API call
-      // const customersData = await dashboardAPI.getCustomers();
+      // Backend API'den customers verilerini al
+      const customersData = await dashboardAPI.getCustomers();
+      console.log('Backend customers data:', customersData);
       
-      // Get customers from localStorage (real data from payments)
-      const storedCustomers = JSON.parse(localStorage.getItem('customers') || '[]');
+      // Backend'den gelen veri varsa onu kullan, yoksa localStorage'dan
+      let customersToShow = customersData;
       
-      // Only show real customers from localStorage, no mock data
-      const customersToShow = storedCustomers;
+      if (customersData.length === 0) {
+        // Fallback: localStorage'dan al
+        const storedCustomers = JSON.parse(localStorage.getItem('customers') || '[]');
+        customersToShow = storedCustomers;
+        console.log('Using localStorage fallback:', storedCustomers);
+      }
       
       // Sort by creation date (newest first) if there are customers
       if (customersToShow.length > 0) {
@@ -62,6 +68,7 @@ const CustomersPage: React.FC = () => {
       
       setCustomers(customersToShow);
     } catch (err: any) {
+      console.error('Error loading customers:', err);
       setError(err.message || 'Failed to load customers');
     } finally {
       setLoading(false);

@@ -530,7 +530,7 @@ const PaymentDetailPage: React.FC = () => {
                     {payment.transactionId || 'N/A'}
                   </Typography>
                 </Box>
-                
+
                 <Box>
                   <Typography variant="body2" color="text.secondary">
                     Connector Transaction ID
@@ -732,7 +732,7 @@ const PaymentDetailPage: React.FC = () => {
                           Refund ID: {event.details.refundId} | Reason: {event.details.reason}
                         </Typography>
                       )}
-                      
+
                     </Box>
                   </Box>
                 ))}
