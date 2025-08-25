@@ -28,6 +28,7 @@ import {
   AccessTime
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
 import dashboardAPI from '../services/dashboardApi';
 import {
   DisputeStats,
@@ -43,6 +44,7 @@ interface DisputesPageProps {
 
 const DisputesPage: React.FC<DisputesPageProps> = () => {
   const navigate = useNavigate();
+  const { state: authState } = useAuth();
   
   // States
   const [stats, setStats] = useState<DisputeStats | null>(null);
@@ -63,8 +65,9 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
   const loadStats = async () => {
     try {
       setStatsLoading(true);
-      console.log('📊 Loading dispute stats for MERCH001...');
-      const statsData = await dashboardAPI.getDisputeStats('MERCH001');
+      const merchantId = authState.user?.merchantId || 'MERCH001';
+      console.log('📊 Loading dispute stats for merchant:', merchantId);
+      const statsData = await dashboardAPI.getDisputeStats(merchantId);
       console.log('✅ Stats loaded successfully:', statsData);
       setStats(statsData);
       // Clear any previous errors when stats load successfully
@@ -88,11 +91,11 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
   const loadDisputes = async (page = 0) => {
     try {
       setLoading(true);
-      console.log('🔄 Loading disputes for page:', page);
+      const merchantId = authState.user?.merchantId || 'MERCH001';
+      console.log('🔄 Loading disputes for page:', page, 'merchant:', merchantId);
       
-      // Explicitly use MERCH001 to fetch disputes from the correct merchant
       const { disputes: disputeData, pagination: paginationData } = await dashboardAPI.getDisputes(
-        'MERCH001', // Explicitly use MERCH001
+        merchantId,
         page,
         pagination.pageSize
       );
@@ -114,9 +117,11 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
 
   // Effects
   useEffect(() => {
-    loadStats();
-    loadDisputes();
-  }, []); // merchantId dependency kaldırıldı
+    if (authState.user?.merchantId) {
+      loadStats();
+      loadDisputes();
+    }
+  }, [authState.user?.merchantId]); // merchantId değiştiğinde yeniden yükle
 
   // Debug: disputes state'ini log'la
   useEffect(() => {
@@ -457,7 +462,7 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
         {/* Debug Info */}
         <Box sx={{ p: 2, bgcolor: 'grey.100', borderBottom: 1, borderColor: 'grey.300' }}>
           <Typography variant="body2" color="text.secondary">
-            Debug: Disputes count: {disputes.length} | Loading: {loading.toString()} | Error: {error || 'none'}
+            Debug: Merchant: {authState.user?.merchantId} | Disputes count: {disputes.length} | Loading: {loading.toString()} | Error: {error || 'none'}
           </Typography>
         </Box>
         

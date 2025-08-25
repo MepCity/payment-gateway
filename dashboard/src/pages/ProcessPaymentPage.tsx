@@ -126,14 +126,26 @@ const ProcessPaymentPage: React.FC = () => {
     }));
   };
 
-  // Debug: Clear old localStorage if needed
+  // Debug: Check authentication
   React.useEffect(() => {
     const apiKey = localStorage.getItem('auth_api_key');
-    if (apiKey && !apiKey.startsWith('pk_test_')) {
-      console.log('Clearing old API key:', apiKey);
-      localStorage.clear();
+    const token = localStorage.getItem('auth_token');
+    const user = localStorage.getItem('auth_user');
+    
+    if (!apiKey || !token || !user) {
+      console.log('Missing authentication data, redirecting to login');
       window.location.href = '/login';
+      return;
     }
+    
+    // Allow all test API keys (pk_test_, pk_demo_, pk_sample_)
+    if (apiKey.startsWith('pk_test_') || apiKey.startsWith('pk_demo_') || apiKey.startsWith('pk_sample_')) {
+      console.log('Valid test API key:', apiKey);
+      return;
+    }
+    
+    // For production, you might want to validate the API key format
+    console.log('Using production API key:', apiKey);
   }, []);
 
   const handleInputChange = (field: keyof PaymentFormData) => (
