@@ -196,9 +196,9 @@ export const dashboardAPI = {
         totalRefunds: refundsData.length,
         refundAmount: refundsData.reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
         totalCustomers: new Set(paymentsData.map((p: any) => p.customerId)).size,
-        totalDisputes: 12, // Mock data
-        pendingDisputes: 3, // Mock data
-        disputeRate: paymentsData.length > 0 ? (12 / paymentsData.length) * 100 : 0
+        totalDisputes: 0, // Dispute tablosu drop edildiği için 0
+        pendingDisputes: 0, // Dispute tablosu drop edildiği için 0
+        disputeRate: 0 // Dispute tablosu drop edildiği için 0
       };
       
       return { data: stats };
@@ -863,6 +863,18 @@ export const dashboardAPI = {
     } catch (error) {
       console.error('Respond to dispute error:', error);
       throw error;
+    }
+  },
+
+  createDispute: async (disputeData: any): Promise<{ success: boolean; message: string; disputeId?: string }> => {
+    try {
+      console.log('📝 Creating new dispute:', disputeData);
+      const response = await dashboardApiClient.post('/v1/disputes', disputeData);
+      console.log('✅ Dispute created successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create dispute error:', error);
+      throw new Error(error.response?.data?.message || 'Dispute oluşturulurken hata oluştu.');
     }
   }
 };

@@ -37,6 +37,7 @@ import {
   DisputeReason,
   PaginationInfo
 } from '../types/dashboard';
+import CreateDisputeModal, { CreateDisputeFormData } from '../components/disputes/CreateDisputeModal';
 
 interface DisputesPageProps {
   // No props needed, merchant ID will be fetched from localStorage
@@ -60,6 +61,7 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // Load data
   const loadStats = async () => {
@@ -138,6 +140,24 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
   const handleRefresh = () => {
     loadStats();
     loadDisputes();
+  };
+
+  const handleCreateDispute = async (data: CreateDisputeFormData) => {
+    try {
+      console.log('📝 Creating dispute with data:', data);
+      const result = await dashboardAPI.createDispute(data);
+      
+      if (result.success) {
+        console.log('✅ Dispute created successfully:', result.disputeId);
+        // Refresh data after successful creation
+        handleRefresh();
+      } else {
+        throw new Error(result.message || 'Dispute oluşturulamadı.');
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating dispute:', error);
+      throw error;
+    }
   };
 
   const handleDisputeDetail = (disputeId: string) => {
@@ -319,7 +339,21 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
                     {stats.totalDisputes}
                   </Typography>
                 </Box>
-                <Add color="warning" fontSize="large" />
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Tooltip title="Yeni Dispute Oluştur">
+                    <IconButton
+                      color="primary"
+                      onClick={() => setCreateModalOpen(true)}
+                      sx={{ 
+                        bgcolor: 'primary.main', 
+                        color: 'white',
+                        '&:hover': { bgcolor: 'primary.dark' }
+                      }}
+                    >
+                      <Add />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Box>
             </CardContent>
           </Card>
@@ -570,6 +604,14 @@ const DisputesPage: React.FC<DisputesPageProps> = () => {
           }
         />
       </Paper>
+
+      {/* Create Dispute Modal */}
+      <CreateDisputeModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={handleCreateDispute}
+        merchantId={authState.user?.merchantId || 'MERCH001'}
+      />
     </Box>
   );
 };

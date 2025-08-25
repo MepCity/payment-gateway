@@ -6,15 +6,20 @@ import {
   CardContent,
   CircularProgress,
   Alert,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   CreditCard,
   AccountBalance,
   Group,
   MoneyOff,
+  Add,
 } from '@mui/icons-material';
 import StatsCards, { StatsCard } from '../components/common/StatsCards';
 import { dashboardApi } from '../services/dashboardApi';
+import CreateDisputeModal, { CreateDisputeFormData } from '../components/disputes/CreateDisputeModal';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardStats {
   totalPayments: number;
@@ -30,9 +35,11 @@ interface DashboardStats {
 }
 
 const DashboardPage: React.FC = () => {
+  const { state: authState } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -43,14 +50,36 @@ const DashboardPage: React.FC = () => {
       setLoading(true);
       setError(null);
       
+      console.log('🔄 Fetching dashboard stats...');
       // Fetch dashboard stats from backend
       const response = await dashboardApi.getDashboardStats();
+      console.log('📊 Dashboard stats response:', response.data);
       setStats(response.data);
     } catch (err: any) {
       console.error('Error fetching dashboard stats:', err);
       setError(err.response?.data?.message || 'Failed to fetch dashboard statistics');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateDispute = async (data: CreateDisputeFormData) => {
+    try {
+      console.log('📝 Creating dispute with data:', data);
+      const result = await dashboardApi.createDispute(data);
+      
+      if (result.success) {
+        console.log('✅ Dispute created successfully:', result.disputeId);
+        console.log('🔄 Refreshing dashboard stats after dispute creation...');
+        // Refresh dashboard stats after successful creation
+        await fetchDashboardStats();
+        console.log('✅ Dashboard stats refreshed after dispute creation');
+      } else {
+        throw new Error(result.message || 'Dispute oluşturulamadı.');
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating dispute:', error);
+      throw error;
     }
   };
 
@@ -131,7 +160,118 @@ const DashboardPage: React.FC = () => {
 
       {/* Statistics Cards */}
       <Box sx={{ mb: 4 }}>
-        <StatsCards cards={statsCards} />
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr', lg: '1fr 1fr 1fr 1fr 1fr 1fr' }, 
+          gap: 3 
+        }}>
+          {/* Total Payments */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary">
+                Total Payments
+              </Typography>
+              <Typography variant="h4" fontWeight="bold" color="primary.main">
+                {stats.totalPayments.toLocaleString()}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ${stats.totalAmount.toLocaleString()} total volume
+              </Typography>
+            </CardContent>
+          </Card>
+
+          {/* Success Rate */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary">
+                Success Rate
+              </Typography>
+              <Typography variant="h4" fontWeight="bold" color="success.main">
+                {stats.successRate.toFixed(1)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {stats.pendingPayments} pending payments
+              </Typography>
+            </CardContent>
+          </Card>
+
+          {/* Total Refunds */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary">
+                Total Refunds
+              </Typography>
+              <Typography variant="h4" fontWeight="bold" color="warning.main">
+                {stats.totalRefunds.toLocaleString()}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ${stats.refundAmount.toLocaleString()} refunded
+              </Typography>
+            </CardContent>
+          </Card>
+
+          {/* Active Customers */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary">
+                Active Customers
+              </Typography>
+              <Typography variant="h4" fontWeight="bold" color="info.main">
+                {stats.totalCustomers.toLocaleString()}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Registered customers
+              </Typography>
+            </CardContent>
+          </Card>
+
+          {/* Total Disputes with Create Button */}
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6" color="text.secondary">
+                    Total Disputes
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold" color="error.main">
+                    {stats.totalDisputes.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {stats.pendingDisputes} pending review
+                  </Typography>
+                </Box>
+                <Tooltip title="Yeni Dispute Oluştur">
+                  <IconButton
+                    color="primary"
+                    onClick={() => setCreateModalOpen(true)}
+                    sx={{ 
+                      bgcolor: 'primary.main', 
+                      color: 'white',
+                      '&:hover': { bgcolor: 'primary.dark' }
+                    }}
+                  >
+                    <Add />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* Dispute Rate */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary">
+                Dispute Rate
+              </Typography>
+              <Typography variant="h4" fontWeight="bold" color="secondary.main">
+                {stats.disputeRate.toFixed(2)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Disputes vs payments ratio
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
 
       {/* Recent Activity Grid */}
@@ -260,6 +400,14 @@ const DashboardPage: React.FC = () => {
           </CardContent>
         </Card>
       </Box>
+
+      {/* Create Dispute Modal */}
+      <CreateDisputeModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={handleCreateDispute}
+        merchantId={authState.user?.merchantId || 'MERCH001'}
+      />
     </Box>
   );
 };

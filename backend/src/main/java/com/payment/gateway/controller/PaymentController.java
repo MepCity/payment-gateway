@@ -91,7 +91,7 @@ public class PaymentController {
         }
 
         // Merchant ID'yi API key'den al
-        String merchantId = getMerchantIdFromApiKey(apiKey);
+        String merchantId = merchantAuthService.getMerchantIdFromApiKey(apiKey);
         if (merchantId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -119,7 +119,7 @@ public class PaymentController {
         }
 
         // Merchant ID'yi API key'den al
-        String merchantId = getMerchantIdFromApiKey(apiKey);
+        String merchantId = merchantAuthService.getMerchantIdFromApiKey(apiKey);
         if (merchantId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -147,7 +147,7 @@ public class PaymentController {
         }
 
         // Merchant ID'yi API key'den al
-        String merchantId = getMerchantIdFromApiKey(apiKey);
+        String merchantId = merchantAuthService.getMerchantIdFromApiKey(apiKey);
         if (merchantId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -174,7 +174,7 @@ public class PaymentController {
         }
 
         // Merchant ID'yi API key'den al
-        String merchantId = getMerchantIdFromApiKey(apiKey);
+        String merchantId = merchantAuthService.getMerchantIdFromApiKey(apiKey);
         if (merchantId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -197,7 +197,7 @@ public class PaymentController {
         }
 
         // Merchant sadece kendi payment'larını görebilir
-        String requestingMerchantId = getMerchantIdFromApiKey(apiKey);
+        String requestingMerchantId = merchantAuthService.getMerchantIdFromApiKey(apiKey);
         if (requestingMerchantId == null || !requestingMerchantId.equals(merchantId)) {
             log.warn("🚫 Merchant {} tried to access payments of {}", requestingMerchantId, merchantId);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -221,7 +221,7 @@ public class PaymentController {
         }
 
         // Merchant ID'yi API key'den al
-        String merchantId = getMerchantIdFromApiKey(apiKey);
+        String merchantId = merchantAuthService.getMerchantIdFromApiKey(apiKey);
         if (merchantId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -494,33 +494,5 @@ public class PaymentController {
         return remoteAddr != null ? remoteAddr : "unknown";
     }
 
-    /**
-     * API key'den merchant ID'yi çıkart
-     */
-    private String getMerchantIdFromApiKey(String apiKey) {
-        if (apiKey == null) {
-            return null;
-        }
-        
-        // Test mode - her test API key'ini farklı merchant'a eşle
-        if (apiKey.startsWith("pk_test_") || apiKey.equals("pk_merch001_live_abc123")) {
-            switch (apiKey) {
-                case "pk_test_merchant1":
-                    return "TEST_MERCHANT";
-                case "pk_test_merchant2":
-                    return "TEST_MERCHANT_2";
-                case "pk_test_merchant3":
-                    return "TEST_MERCHANT_3";
-                case "pk_merch001_live_abc123":
-                    return "MERCH001"; // Bu API key için MERCH001 döndür
-                default:
-                    return "TEST_MERCHANT"; // Default test merchant
-            }
-        }
-        
-        // Production'da merchant'ı API key ile bulup merchant ID'yi döneriz
-        return merchantAuthService.getMerchantByApiKey(apiKey)
-                .map(merchant -> merchant.getMerchantId())
-                .orElse(null);
-    }
+
 }

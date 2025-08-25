@@ -152,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: new Date().toISOString()
       };
       
-      const testApiKey = 'pk_test_bypass_key';
+      const testApiKey = 'pk_merch001_live_abc123';
       
       // Test key'ler için localStorage'a test verileri kaydet
       localStorage.setItem('auth_token', 'test-token');
