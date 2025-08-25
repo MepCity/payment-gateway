@@ -7,6 +7,7 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<boolean>;
   logout: () => void;
   clearError: () => void;
+  switchMerchant: (merchantId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,18 +86,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Session restore on app load
   useEffect(() => {
     const restoreSession = () => {
+      console.log('🔐 Attempting to restore session...');
+      
       const token = localStorage.getItem('auth_token');
       const userStr = localStorage.getItem('auth_user');
       const apiKey = localStorage.getItem('auth_api_key');
 
+      console.log('📦 Stored data:', { token: !!token, userStr: !!userStr, apiKey: !!apiKey });
+
       if (token && userStr && apiKey) {
         try {
           const user = JSON.parse(userStr);
+          console.log('✅ Session restored successfully:', { user: user.merchantId, apiKey: apiKey.substring(0, 10) + '...' });
+          
           dispatch({
             type: 'RESTORE_SESSION',
             payload: { user, token, apiKey }
           });
         } catch (error) {
+          console.error('❌ Failed to parse stored user data:', error);
           // Invalid stored data, clear it
           localStorage.removeItem('auth_token');
           localStorage.removeItem('auth_user');
@@ -105,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           dispatch({ type: 'LOGOUT' });
         }
       } else {
+        console.log('❌ No session data found, logging out');
         // No session to restore, set loading to false
         dispatch({ type: 'LOGOUT' });
       }
@@ -120,7 +129,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response: LoginResponse = await authAPI.login(credentials);
       
       if (response.success && response.user && response.token && response.apiKey) {
-        // Store in localStorage
+        // Test API key'ler için özel durum
+        if (response.apiKey.startsWith('pk_test_')) {
+          // Test key'ler için test user oluştur ve hemen authenticated yap
+          const testUser = {
+            id: 'test-user',
+            merchantId: 'TEST_MERCHANT',
+            merchantName: 'Test Merchant',
+            email: 'test@merchant.com',
+            role: 'ADMIN' as const,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          
+          // Test key'ler için localStorage'a test verileri kaydet
+          localStorage.setItem('auth_token', 'test-token');
+          localStorage.setItem('auth_user', JSON.stringify(testUser));
+          localStorage.setItem('auth_api_key', response.apiKey);
+
+          dispatch({
+            type: 'LOGIN_SUCCESS',
+            payload: {
+              user: testUser,
+              token: 'test-token',
+              apiKey: response.apiKey
+            }
+          });
+          
+          return true;
+        }
+
+        // Normal production key'ler için standart flow
         localStorage.setItem('auth_token', response.token);
         localStorage.setItem('auth_user', JSON.stringify(response.user));
         localStorage.setItem('auth_api_key', response.apiKey);
@@ -164,11 +203,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
+  const switchMerchant = (merchantId: string) => {
+    // Mevcut kullanıcı bilgilerini güncelle
+    if (state.user) {
+      const updatedUser = { ...state.user, merchantId };
+      localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      
+      dispatch({
+        type: 'RESTORE_SESSION',
+        payload: {
+          user: updatedUser,
+          token: state.token || '',
+          apiKey: state.apiKey || ''
+        }
+      });
+    }
+  };
+
   const value: AuthContextType = {
     state,
     login,
     logout,
     clearError,
+    switchMerchant,
   };
 
   return (

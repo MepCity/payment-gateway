@@ -28,6 +28,7 @@ import {
   AccessTime
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
 import dashboardAPI from '../services/dashboardApi';
 import {
   DisputeStats,
@@ -38,11 +39,12 @@ import {
 } from '../types/dashboard';
 
 interface DisputesPageProps {
-  merchantId?: string;
+  // No props needed, merchant ID will be fetched from localStorage
 }
 
-const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) => {
+const DisputesPage: React.FC<DisputesPageProps> = () => {
   const navigate = useNavigate();
+  const { state: authState } = useAuth();
   
   // States
   const [stats, setStats] = useState<DisputeStats | null>(null);
@@ -56,31 +58,57 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
     hasPrev: false
   });
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Load data
   const loadStats = async () => {
     try {
+      setStatsLoading(true);
+      const merchantId = authState.user?.merchantId || 'MERCH001';
+      console.log('📊 Loading dispute stats for merchant:', merchantId);
       const statsData = await dashboardAPI.getDisputeStats(merchantId);
+      console.log('✅ Stats loaded successfully:', statsData);
       setStats(statsData);
-    } catch (err) {
-      console.error('Error loading dispute stats:', err);
-      setError('İstatistikler yüklenemedi');
+      // Clear any previous errors when stats load successfully
+      if (error && error.includes('İstatistikler')) {
+        setError(null);
+      }
+    } catch (err: any) {
+      console.error('❌ Error loading dispute stats:', err);
+      console.error('❌ Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      // Stats loading hatası için error gösterme, sadece console'da log'la
+      // setError(`İstatistikler yüklenemedi: ${err.message}`);
+    } finally {
+      setStatsLoading(false);
     }
   };
 
   const loadDisputes = async (page = 0) => {
     try {
       setLoading(true);
+      const merchantId = authState.user?.merchantId || 'MERCH001';
+      console.log('🔄 Loading disputes for page:', page, 'merchant:', merchantId);
+      
       const { disputes: disputeData, pagination: paginationData } = await dashboardAPI.getDisputes(
         merchantId,
         page,
         pagination.pageSize
       );
+      
+      console.log('📊 Disputes API response:', { disputeData, paginationData });
+      console.log('📋 Disputes count:', disputeData.length);
+      
       setDisputes(disputeData);
       setPagination(paginationData);
+      
+      console.log('✅ Disputes loaded successfully');
     } catch (err) {
-      console.error('Error loading disputes:', err);
+      console.error('❌ Error loading disputes:', err);
       setError('Disputelar yüklenemedi');
     } finally {
       setLoading(false);
@@ -89,9 +117,18 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
 
   // Effects
   useEffect(() => {
-    loadStats();
-    loadDisputes();
-  }, [merchantId]);
+    if (authState.user?.merchantId) {
+      loadStats();
+      loadDisputes();
+    }
+  }, [authState.user?.merchantId]); // merchantId değiştiğinde yeniden yükle
+
+  // Debug: disputes state'ini log'la
+  useEffect(() => {
+    console.log('🔍 Disputes state changed:', disputes);
+    console.log('🔍 Disputes length:', disputes.length);
+    console.log('🔍 Disputes data:', disputes);
+  }, [disputes]);
 
   // Handlers
   const handlePageChange = (event: unknown, newPage: number) => {
@@ -242,7 +279,29 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
       )}
 
       {/* Stats Cards */}
-      {stats && (
+      {statsLoading ? (
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
+          gap: 3, 
+          mb: 4 
+        }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="h6" color="text.secondary">
+                      Yükleniyor...
+                    </Typography>
+                    <CircularProgress size={24} />
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      ) : stats ? (
         <Box sx={{ 
           display: 'grid', 
           gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
@@ -324,16 +383,96 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
             </CardContent>
           </Card>
         </Box>
+      ) : (
+        // Fallback stats when API fails
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
+          gap: 3, 
+          mb: 4 
+        }}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6" color="text.secondary">
+                    Toplam Dispute
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {disputes.length}
+                  </Typography>
+                </Box>
+                <Add color="warning" fontSize="large" />
+              </Box>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6" color="text.secondary">
+                    Aktif Disputes
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold" color="info.main">
+                    {disputes.filter(d => d.status === 'UNDER_REVIEW' || d.status === 'OPENED').length}
+                  </Typography>
+                </Box>
+                <AccessTime color="info" fontSize="large" />
+              </Box>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6" color="text.secondary">
+                    Toplam Tutar
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {disputes.reduce((sum, d) => sum + (d.amount || 0), 0).toLocaleString()}
+                  </Typography>
+                </Box>
+                <ArrowDownward color="error" fontSize="large" />
+              </Box>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6" color="text.secondary">
+                    Durum
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold" color="success.main">
+                    Aktif
+                  </Typography>
+                </Box>
+                <ArrowUpward color="success" fontSize="large" />
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
       )}
 
       {/* Disputes Table */}
       <Paper>
+        {/* Debug Info */}
+        <Box sx={{ p: 2, bgcolor: 'grey.100', borderBottom: 1, borderColor: 'grey.300' }}>
+          <Typography variant="body2" color="text.secondary">
+            Debug: Merchant: {authState.user?.merchantId} | Disputes count: {disputes.length} | Loading: {loading.toString()} | Error: {error || 'none'}
+          </Typography>
+        </Box>
+        
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
                 <TableCell>Dispute ID</TableCell>
                 <TableCell>Payment ID</TableCell>
+                <TableCell>Customer ID</TableCell>
                 <TableCell>Tutar</TableCell>
                 <TableCell>Durum</TableCell>
                 <TableCell>Sebep</TableCell>
@@ -344,7 +483,7 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
             <TableBody>
               {disputes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body2" color="text.secondary" py={4}>
                       Henüz dispute bulunamadı.
                     </Typography>
@@ -361,6 +500,11 @@ const DisputesPage: React.FC<DisputesPageProps> = ({ merchantId = 'MERCH001' }) 
                     <TableCell>
                       <Typography variant="body2" fontFamily="monospace">
                         {dispute.paymentId}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontFamily="monospace">
+                        {dispute.customerId}
                       </Typography>
                     </TableCell>
                     <TableCell>

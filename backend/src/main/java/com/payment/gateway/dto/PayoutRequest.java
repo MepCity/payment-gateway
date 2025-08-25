@@ -21,6 +21,10 @@ public class PayoutRequest {
     @Size(min = 3, max = 50, message = "Customer ID must be between 3 and 50 characters")
     private String customerId;
     
+    @NotBlank(message = "Payment ID is required")
+    @Size(min = 3, max = 50, message = "Payment ID must be between 3 and 50 characters")
+    private String paymentId;
+    
     @NotNull(message = "Amount is required")
     @DecimalMin(value = "0.01", message = "Amount must be at least 0.01")
     @DecimalMax(value = "999999.99", message = "Amount cannot exceed 999,999.99")

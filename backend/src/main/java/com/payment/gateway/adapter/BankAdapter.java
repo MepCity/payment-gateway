@@ -1,8 +1,6 @@
 package com.payment.gateway.adapter;
 
 import com.payment.gateway.dto.PaymentRequest;
-import com.payment.gateway.dto.ThreeDSecureRequest;
-import com.payment.gateway.dto.ThreeDSecureResponse;
 
 /**
  * Bank-specific 3D Secure adapter interface
@@ -29,16 +27,6 @@ public interface BankAdapter {
      * Kart numarası bu bankaya ait mi kontrol et
      */
     boolean supportsBin(String cardNumber);
-    
-    /**
-     * 3D Secure işlemini başlat
-     */
-    ThreeDSecureResponse initiate3DSecure(PaymentRequest paymentRequest, ThreeDSecureRequest threeDRequest);
-    
-    /**
-     * 3D Secure callback'ini işle
-     */
-    ThreeDSecureResponse handle3DCallback(String callbackData);
     
     /**
      * Bankanın test ortamı aktif mi

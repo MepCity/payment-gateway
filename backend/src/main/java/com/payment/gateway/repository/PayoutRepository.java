@@ -16,6 +16,8 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
     
     Optional<Payout> findByPayoutId(String payoutId);
     
+    Optional<Payout> findByPaymentId(String paymentId);
+    
     List<Payout> findByMerchantId(String merchantId);
     
     List<Payout> findByCustomerId(String customerId);

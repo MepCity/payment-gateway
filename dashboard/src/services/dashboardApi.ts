@@ -34,7 +34,7 @@ const dashboardApiClient = axios.create({
 dashboardApiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
   const apiKey = localStorage.getItem('auth_api_key');
-  
+      
   console.log('Dashboard API - Token:', token ? 'Present' : 'Missing');
   console.log('Dashboard API - API Key:', apiKey ? 'Present' : 'Missing');
   
@@ -48,6 +48,21 @@ dashboardApiClient.interceptors.request.use((config) => {
   
   return config;
 });
+
+// Utility function to get current merchant ID from localStorage
+const getCurrentMerchantId = (): string => {
+  try {
+    const userStr = localStorage.getItem('auth_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.merchantId || 'TEST_MERCHANT';
+    }
+    return 'TEST_MERCHANT';
+  } catch (error) {
+    console.error('Error getting merchant ID:', error);
+    return 'TEST_MERCHANT';
+  }
+};
 
 // Response interceptor for error handling
 dashboardApiClient.interceptors.response.use(
@@ -71,11 +86,90 @@ export interface PaymentListResponse {
 }
 
 export const dashboardAPI = {
+  // Get customer payments by customer ID
+  getCustomerPayments: async (customerId: string): Promise<PaymentListItem[]> => {
+    try {
+      const merchantId = getCurrentMerchantId();
+      console.log('📊 Getting customer payments for customer:', customerId, 'merchant:', merchantId);
+      
+      const response = await dashboardApiClient.get(`/v1/payments/customer/${customerId}`);
+      const payments = response.data;
+      
+      // Ensure transactionId is properly mapped
+      return payments.map((payment: any) => ({
+        ...payment,
+        transactionId: payment.transactionId || payment.transaction_id || payment.id || 'N/A'
+      }));
+    } catch (error) {
+      console.error('Get customer payments error:', error);
+      return [];
+    }
+  },
+
+  // Get all customers by extracting from payments data
+  getCustomers: async (): Promise<any[]> => {
+    try {
+      const merchantId = getCurrentMerchantId();
+      console.log('📊 Getting customers for merchant:', merchantId);
+      
+      // Get all payments for the merchant and extract unique customers
+      const response = await dashboardApiClient.get(`/v1/payments/merchant/${merchantId}`);
+      const payments = response.data;
+      
+      // Extract unique customers from payments
+      const customerMap = new Map();
+      payments.forEach((payment: any) => {
+        if (payment.customerId) {
+          if (!customerMap.has(payment.customerId)) {
+            customerMap.set(payment.customerId, {
+              id: Date.now() + Math.random(), // Unique ID
+              customerId: payment.customerId,
+              transactionId: payment.transactionId || 'N/A',
+              customerName: payment.customerName || payment.cardHolderName || 'Unknown Customer',
+              email: payment.customerEmail || 'no-email@example.com',
+              phone: payment.customerPhone || 'N/A',
+              description: `Customer from payment ${payment.paymentId}`,
+              address: payment.customerAddress || 'N/A',
+              status: 'ACTIVE',
+              createdAt: payment.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              lastPaymentAt: payment.createdAt || new Date().toISOString(),
+              totalPayments: 1,
+              totalAmount: payment.amount || 0,
+              currency: payment.currency || 'USD'
+            });
+          } else {
+            // Update existing customer with additional payment info
+            const existingCustomer = customerMap.get(payment.customerId);
+            existingCustomer.totalPayments += 1;
+            existingCustomer.totalAmount += (payment.amount || 0);
+            // Update transactionId if it's not already set or if current one is 'N/A'
+            if (payment.transactionId && (existingCustomer.transactionId === 'N/A' || !existingCustomer.transactionId)) {
+              existingCustomer.transactionId = payment.transactionId;
+            }
+            if (payment.createdAt && new Date(payment.createdAt) > new Date(existingCustomer.lastPaymentAt)) {
+              existingCustomer.lastPaymentAt = payment.createdAt;
+            }
+          }
+        }
+      });
+      
+      return Array.from(customerMap.values());
+    } catch (error) {
+      console.error('Get customers error:', error);
+      return [];
+    }
+  },
+
   // Get comprehensive dashboard statistics
   getDashboardStats: async (): Promise<{ data: any }> => {
     try {
+      // Current merchant ID'yi al
+      const merchantId = getCurrentMerchantId();
+      console.log('📊 Getting dashboard stats for merchant:', merchantId);
+      
       // Backend'den dashboard statistics'i çek - doğru endpoint
-      const response = await dashboardApiClient.get('/v1/merchant-dashboard/TEST_MERCHANT');
+      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}`);
       return { data: response.data };
     } catch (error) {
       console.error('Get dashboard stats error:', error);
@@ -641,26 +735,49 @@ export const dashboardAPI = {
   },
 
   // Dispute operations
-  getDisputeStats: async (merchantId: string = 'TEST_MERCHANT'): Promise<DisputeStats> => {
+  getDisputeStats: async (merchantId?: string): Promise<DisputeStats> => {
     try {
-      console.log('📊 Fetching dispute stats for merchant:', merchantId);
-      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes`);
-      console.log('✅ Dispute stats response:', response.data);
+      // Merchant ID belirtilmemişse current merchant'ı kullan
+      const targetMerchantId = merchantId || getCurrentMerchantId();
+      console.log('📊 Fetching dispute stats for merchant:', targetMerchantId);
+      
+      const apiUrl = `/v1/merchant-dashboard/${targetMerchantId}/disputes`;
+      console.log('🌐 Stats API URL:', apiUrl);
+      
+      // API key'i manuel olarak ekle
+      const apiKey = localStorage.getItem('auth_api_key');
+      console.log('🔑 Using API key:', apiKey ? 'Present' : 'Missing');
+      
+      const response = await dashboardApiClient.get(apiUrl, {
+        headers: {
+          'X-API-Key': apiKey || ''
+        }
+      });
+      console.log('✅ Dispute stats response status:', response.status);
+      console.log('✅ Dispute stats response data:', response.data);
+      
       return response.data;
-    } catch (error) {
-      console.error('Get dispute stats error:', error);
+    } catch (error: any) {
+      console.error('❌ Get dispute stats error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       throw error;
     }
   },
 
   getDisputes: async (
-    merchantId: string = 'TEST_MERCHANT',
+    merchantId?: string,
     page: number = 0,
     size: number = 20,
     filters?: DisputeFilters
   ): Promise<{ disputes: DisputeListItem[]; pagination: PaginationInfo }> => {
     try {
-      console.log('📄 Fetching disputes - page:', page, 'size:', size, 'filters:', filters);
+      // Merchant ID belirtilmemişse current merchant'ı kullan
+      const targetMerchantId = merchantId || getCurrentMerchantId();
+      console.log('📄 Fetching disputes for merchant:', targetMerchantId, '- page:', page, 'size:', size, 'filters:', filters);
       
       const params = new URLSearchParams({
         page: page.toString(),
@@ -689,8 +806,13 @@ export const dashboardAPI = {
         params.append('search', filters.search);
       }
 
-      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/list?${params}`);
-      console.log('✅ Disputes response:', response.data);
+      const apiUrl = `/v1/merchant-dashboard/${targetMerchantId}/disputes/list?${params}`;
+      console.log('🌐 API URL:', apiUrl);
+
+      const response = await dashboardApiClient.get(apiUrl);
+      console.log('✅ Disputes API response status:', response.status);
+      console.log('✅ Disputes API response data:', response.data);
+      console.log('✅ Disputes content length:', response.data.content?.length || 0);
 
       return {
         disputes: response.data.content || [],
@@ -703,19 +825,39 @@ export const dashboardAPI = {
           hasPrev: !response.data.first,
         }
       };
-    } catch (error) {
-      console.error('Get disputes error:', error);
+    } catch (error: any) {
+      console.error('❌ Get disputes error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       throw error;
     }
   },
 
   getDisputeDetail: async (
-    merchantId: string = 'TEST_MERCHANT',
-    disputeId: string
+    disputeId: string,
+    merchantId?: string
   ): Promise<DisputeDetail> => {
     try {
-      console.log('🔍 Fetching dispute detail:', disputeId);
-      const response = await dashboardApiClient.get(`/v1/merchant-dashboard/${merchantId}/disputes/${disputeId}`);
+      // Merchant ID belirtilmemişse current merchant'ı kullan
+      const targetMerchantId = merchantId || getCurrentMerchantId();
+      console.log('🔍 Fetching dispute detail:', disputeId, 'for merchant:', targetMerchantId);
+      
+      // Doğru endpoint: /v1/disputes/dispute-id/{disputeId}
+      const apiUrl = `/v1/disputes/dispute-id/${disputeId}`;
+      console.log('🌐 API URL:', apiUrl);
+      
+      // API key'i manuel olarak ekle
+      const apiKey = localStorage.getItem('auth_api_key');
+      console.log('🔑 Using API key:', apiKey ? 'Present' : 'Missing');
+      
+      const response = await dashboardApiClient.get(apiUrl, {
+        headers: {
+          'X-API-Key': apiKey || ''
+        }
+      });
       console.log('✅ Dispute detail response:', response.data);
       return response.data;
     } catch (error) {
@@ -725,7 +867,7 @@ export const dashboardAPI = {
   },
 
   respondToDispute: async (
-    merchantId: string = 'TEST_MERCHANT',
+    merchantId: string = 'MERCH001',
     disputeId: string,
     disputeResponse: DisputeResponse
   ): Promise<{ success: boolean; message: string; nextStep?: string }> => {

@@ -58,7 +58,7 @@ const DisputeDetailPage: React.FC = () => {
       setLoading(true);
       setError(null);
       console.log('🔍 Loading dispute detail for ID:', disputeId);
-      const disputeDetail = await dashboardAPI.getDisputeDetail('MERCH001', disputeId);
+      const disputeDetail = await dashboardAPI.getDisputeDetail(disputeId);
       console.log('✅ Dispute detail loaded:', disputeDetail);
       setDispute(disputeDetail);
     } catch (err: any) {
@@ -271,12 +271,20 @@ const DisputeDetailPage: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">Payment ID:</Typography>
                     <Typography variant="body2" fontFamily="monospace">{dispute.paymentId}</Typography>
                   </Box>
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">Customer ID:</Typography>
+                    <Typography variant="body2" fontFamily="monospace">{dispute.customerId}</Typography>
+                  </Box>
                   {dispute.transactionId && (
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="body2" color="text.secondary">Transaction ID:</Typography>
                       <Typography variant="body2" fontFamily="monospace">{dispute.transactionId}</Typography>
                     </Box>
                   )}
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">Merchant ID:</Typography>
+                    <Typography variant="body2" fontFamily="monospace">{dispute.merchantId}</Typography>
+                  </Box>
                   <Box display="flex" justifyContent="space-between">
                     <Typography variant="body2" color="text.secondary">Tutar:</Typography>
                     <Typography variant="body2" fontWeight="medium">

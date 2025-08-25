@@ -46,6 +46,7 @@ const CustomerDetailPage: React.FC = () => {
   const [paymentIntents, setPaymentIntents] = useState<any[]>([]);
   const [paymentAttempts, setPaymentAttempts] = useState<any[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
+  const [disputes, setDisputes] = useState<any[]>([]);
 
   const loadCustomerDetail = async () => {
     if (!customerId) return;
@@ -92,10 +93,48 @@ const CustomerDetailPage: React.FC = () => {
       // Load payment data using the real-time data
       await loadPaymentData(customerInfo, customerPayments);
       
+      // Load dispute data for this customer
+      await loadDisputeData(customerId);
+      
     } catch (err: any) {
       setError(err.message || 'Failed to load customer details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDisputeData = async (customerId: string) => {
+    try {
+      console.log('🔍 Loading dispute data for customer:', customerId);
+      
+      // Tüm dispute'ları getir ve customer ID'ye göre filtrele
+      const response = await fetch('http://localhost:8080/v1/disputes', {
+        headers: {
+          'X-API-Key': localStorage.getItem('auth_api_key') || ''
+        }
+      });
+      
+      if (response.ok) {
+        const allDisputes = await response.json();
+        const customerDisputes = allDisputes.filter((dispute: any) => 
+          dispute.customerId === customerId
+        );
+        
+        // Duplicate dispute'ları filtrele (aynı dispute ID'ye sahip olanları)
+        const uniqueDisputes = customerDisputes.filter((dispute: any, index: number, self: any[]) => 
+          index === self.findIndex((d: any) => d.disputeId === dispute.disputeId)
+        );
+        
+        console.log('✅ Customer disputes loaded (before deduplication):', customerDisputes);
+        console.log('✅ Customer disputes loaded (after deduplication):', uniqueDisputes);
+        setDisputes(uniqueDisputes);
+      } else {
+        console.error('❌ Failed to load disputes:', response.status);
+        setDisputes([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading dispute data:', error);
+      setDisputes([]);
     }
   };
 
@@ -819,6 +858,158 @@ const CustomerDetailPage: React.FC = () => {
                     <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No refunds found for this customer
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
+
+      {/* Disputes Table */}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+            Disputes
+          </Typography>
+          
+          <TableContainer component={Paper} variant="outlined" sx={{ 
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ 
+                  backgroundColor: 'background.paper',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Dispute ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Payment ID</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Status</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Amount</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Currency</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Reason</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Dispute Date</TableCell>
+                  <TableCell sx={{ 
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    backgroundColor: 'background.paper'
+                  }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {disputes.length > 0 ? (
+                  disputes.map((dispute) => (
+                    <TableRow key={dispute.disputeId} sx={{ 
+                      backgroundColor: 'background.paper',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider'
+                    }}>
+                      <TableCell sx={{ fontFamily: 'monospace' }}>{dispute.disputeId}</TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace' }}>{dispute.paymentId}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          color={
+                            dispute.status === 'WON' ? 'success' :
+                            dispute.status === 'LOST' ? 'error' :
+                            dispute.status === 'UNDER_REVIEW' ? 'warning' :
+                            dispute.status === 'EVIDENCE_REQUIRED' ? 'info' :
+                            dispute.status === 'OPENED' ? 'primary' :
+                            'default'
+                          }
+                          label={
+                            dispute.status === 'OPENED' ? 'Açıldı' :
+                            dispute.status === 'UNDER_REVIEW' ? 'İnceleme Altında' :
+                            dispute.status === 'EVIDENCE_REQUIRED' ? 'Kanıt Gerekli' :
+                            dispute.status === 'RESOLVED' ? 'Çözüldü' :
+                            dispute.status === 'CLOSED' ? 'Kapatıldı' :
+                            dispute.status === 'WON' ? 'Kazanıldı' :
+                            dispute.status === 'LOST' ? 'Kaybedildi' :
+                            dispute.status
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>{formatAmount(dispute.amount, dispute.currency)}</TableCell>
+                      <TableCell>{dispute.currency}</TableCell>
+                      <TableCell>
+                        {dispute.reason === 'FRAUD' ? 'Dolandırıcılık' :
+                         dispute.reason === 'DUPLICATE' ? 'Duplike İşlem' :
+                         dispute.reason === 'PRODUCT_NOT_RECEIVED' ? 'Ürün Teslim Alınmadı' :
+                         dispute.reason === 'PRODUCT_NOT_AS_DESCRIBED' ? 'Ürün Açıklaması Uygun Değil' :
+                         dispute.reason === 'CREDIT_NOT_PROCESSED' ? 'Kredi İşlenmedi' :
+                         dispute.reason === 'GENERAL' ? 'Genel' :
+                         dispute.reason === 'OTHER' ? 'Diğer' :
+                         dispute.reason}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          try {
+                            if (!dispute.disputeDate) return 'Belirtilmemiş';
+                            if (Array.isArray(dispute.disputeDate)) {
+                              const [year, month, day, hour = 0, minute = 0] = dispute.disputeDate;
+                              const date = new Date(year, month - 1, day, hour, minute);
+                              return format(date, 'dd.MM.yyyy HH:mm');
+                            }
+                            return format(new Date(dispute.disputeDate), 'dd.MM.yyyy HH:mm');
+                          } catch (error) {
+                            return 'Geçersiz tarih';
+                          }
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title="View Dispute Details">
+                          <IconButton 
+                            size="small"
+                            onClick={() => navigate(`/dashboard/disputes/${dispute.disputeId}`)}
+                          >
+                            <OpenInNew fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow sx={{ 
+                    backgroundColor: 'background.paper',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider'
+                  }}>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        No disputes found for this customer
                       </Typography>
                     </TableCell>
                   </TableRow>

@@ -37,31 +37,11 @@ interface PaymentFormData {
   description: string;
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box>{children}</Box>}
-    </div>
-  );
-}
-
 const ProcessPaymentPage: React.FC = () => {
   const { state } = useAuth();
   const navigate = useNavigate();
+  
+  // ALL HOOKS MUST BE CALLED FIRST - before any early returns
   const [tabValue, setTabValue] = useState(0);
   const [formData, setFormData] = useState<PaymentFormData>({
     customerId: 'hyperswitch_sdk_demo_id',
@@ -77,7 +57,7 @@ const ProcessPaymentPage: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<{
+  const [success, setSuccess] = useState<{
     message: string;
     paymentId: string;
     transactionId: string;
@@ -116,6 +96,46 @@ const ProcessPaymentPage: React.FC = () => {
     }
   ];
 
+  // Authentication check - redirect to login if not authenticated
+  React.useEffect(() => {
+    if (!state.loading && !state.isAuthenticated) {
+      console.log('Not authenticated, redirecting to login');
+      navigate('/login');
+      return;
+    }
+  }, [state.loading, state.isAuthenticated, navigate]);
+
+  // Debug: Check authentication state
+  React.useEffect(() => {
+    console.log('ProcessPaymentPage - Auth State:', {
+      loading: state.loading,
+      isAuthenticated: state.isAuthenticated,
+      user: state.user,
+      token: state.token,
+      apiKey: state.apiKey
+    });
+    
+    console.log('localStorage:', {
+      token: localStorage.getItem('auth_token'),
+      user: localStorage.getItem('auth_user'),
+      apiKey: localStorage.getItem('auth_api_key')
+    });
+  }, [state.loading, state.isAuthenticated, state.user, state.token, state.apiKey]);
+
+  // Show loading while checking authentication
+  if (state.loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!state.isAuthenticated) {
+    return null;
+  }
+
   const fillTestCard = (testCard: typeof testCards[0]) => {
     setFormData(prev => ({
       ...prev,
@@ -125,16 +145,6 @@ const ProcessPaymentPage: React.FC = () => {
       cvv: testCard.cvv
     }));
   };
-
-  // Debug: Clear old localStorage if needed
-  React.useEffect(() => {
-    const apiKey = localStorage.getItem('auth_api_key');
-    if (apiKey && !apiKey.startsWith('pk_test_')) {
-      console.log('Clearing old API key:', apiKey);
-      localStorage.clear();
-      window.location.href = '/login';
-    }
-  }, []);
 
   const handleInputChange = (field: keyof PaymentFormData) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | 
@@ -245,8 +255,6 @@ const ProcessPaymentPage: React.FC = () => {
       console.log('API Key from localStorage:', localStorage.getItem('auth_api_key'));
       console.log('Token from localStorage:', localStorage.getItem('auth_token'));
       
-      // Backend is working, skip health check
-      
       // Call real backend API
       const response = await paymentApi.createPayment(paymentData);
       
@@ -306,7 +314,7 @@ const ProcessPaymentPage: React.FC = () => {
           customerId: formData.customerId,
           amount: parseFloat(formData.amount),
           currency: formData.currency,
-          status: 'COMPLETED', // Changed from 'SUCCEEDED' to 'COMPLETED'
+          status: 'COMPLETED',
           paymentMethod: formData.paymentMethod,
           cardNumber: formData.cardNumber.replace(/\s/g, ''),
           cardHolderName: formData.cardHolderName,
@@ -323,7 +331,6 @@ const ProcessPaymentPage: React.FC = () => {
         localStorage.setItem('payments', JSON.stringify(existingPayments));
         
         console.log('Payment data saved to localStorage. Total payments:', existingPayments.length);
-        console.log('localStorage payments:', localStorage.getItem('payments'));
 
         setSuccess({
           message: 'Payment processed successfully!',
@@ -518,17 +525,17 @@ const ProcessPaymentPage: React.FC = () => {
                 gap: 3 
               }}>
                 <Box>
-                                     <TextField
-                     fullWidth
-                     label="Card Number"
-                     value={formData.cardNumber}
-                     onChange={handleCardNumberChange}
-                     required
-                     disabled={loading}
-                     placeholder="1234 5678 9012 3456"
-                     inputProps={{ maxLength: 19 }}
-                     helperText="16 digits maximum"
-                   />
+                  <TextField
+                    fullWidth
+                    label="Card Number"
+                    value={formData.cardNumber}
+                    onChange={handleCardNumberChange}
+                    required
+                    disabled={loading}
+                    placeholder="1234 5678 9012 3456"
+                    inputProps={{ maxLength: 19 }}
+                    helperText="16 digits maximum"
+                  />
                 </Box>
                 
                 <Box sx={{ 
@@ -577,63 +584,63 @@ const ProcessPaymentPage: React.FC = () => {
               </Box>
             </Box>
 
-                         {/* Test Cards Section */}
-             <Box sx={{ 
-               mt: 4, 
-               p: 3, 
-               bgcolor: 'background.paper', 
-               borderRadius: 2,
-               border: '1px solid',
-               borderColor: 'divider'
-             }}>
-               <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                 <CreditCard />
-                 Test Cards
-               </Typography>
-               
-               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
-                 {testCards.map((card, index) => (
-                   <Card 
-                     key={index}
-                     sx={{ 
-                       cursor: 'pointer',
-                       transition: 'transform 0.2s, box-shadow 0.2s',
-                       '&:hover': {
-                         transform: 'translateY(-2px)',
-                         boxShadow: 2,
-                       }
-                     }}
-                     onClick={() => fillTestCard(card)}
-                   >
-                     <CardContent sx={{ p: 2 }}>
-                       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                         {card.name}
-                       </Typography>
-                       <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
-                         {card.cardNumber}
-                       </Typography>
-                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                         {card.cardHolderName} • {card.expiryDate} • {card.cvv}
-                       </Typography>
-                       <Typography variant="caption" color="text.secondary">
-                         {card.description}
-                       </Typography>
-                     </CardContent>
-                   </Card>
-                 ))}
-               </Box>
-               
-               <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                 💡 Click on any card to auto-fill the form
-               </Typography>
-             </Box>
+            {/* Test Cards Section */}
+            <Box sx={{ 
+              mt: 4, 
+              p: 3, 
+              bgcolor: 'background.paper', 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CreditCard />
+                Test Cards
+              </Typography>
+              
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                {testCards.map((card, index) => (
+                  <Card 
+                    key={index}
+                    sx={{ 
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 2,
+                      }
+                    }}
+                    onClick={() => fillTestCard(card)}
+                  >
+                    <CardContent sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        {card.name}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
+                        {card.cardNumber}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                        {card.cardHolderName} • {card.expiryDate} • {card.cvv}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {card.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+              
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                💡 Click on any card to auto-fill the form
+              </Typography>
+            </Box>
 
-             <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-               <Security color="action" />
-               <Typography variant="body2" color="text.secondary">
-                 Your payment information is encrypted and secure
-               </Typography>
-             </Box>
+            <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Security color="action" />
+              <Typography variant="body2" color="text.secondary">
+                Your payment information is encrypted and secure
+              </Typography>
+            </Box>
 
             <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
               <Button
@@ -671,7 +678,7 @@ const ProcessPaymentPage: React.FC = () => {
                 </Button>
               )}
               
-                  <Button
+              <Button
                 type="submit"
                 variant="contained"
                 disabled={loading}

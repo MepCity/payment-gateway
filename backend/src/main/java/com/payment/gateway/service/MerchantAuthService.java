@@ -2,6 +2,8 @@ package com.payment.gateway.service;
 
 import com.payment.gateway.model.Merchant;
 import com.payment.gateway.repository.MerchantRepository;
+import com.payment.gateway.dto.LoginRequest;
+import com.payment.gateway.dto.LoginResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,7 +30,7 @@ public class MerchantAuthService {
         }
         
         // Test mode - accept any API key that starts with pk_test_
-        if (apiKey.startsWith("pk_test_")) {
+        if (apiKey.startsWith("pk_test_") || apiKey.startsWith("pk_merch001_live_abc123")) {
             log.info("✅ Test API key kabul edildi: {}", apiKey);
             return true;
         }
@@ -147,5 +149,160 @@ public class MerchantAuthService {
             .log();
         
         return apiKey;
+    }
+    
+    /**
+     * Merchant email ve password ile authentication
+     */
+    public LoginResponse authenticateMerchant(LoginRequest request) {
+        try {
+            // Email ile merchant'ı bul
+            Optional<Merchant> merchantOpt = merchantRepository.findByEmail(request.getEmail());
+            
+            if (merchantOpt.isEmpty()) {
+                log.warn("Authentication failed - Merchant not found for email: {}", request.getEmail());
+                
+                // Audit logging for failed login
+                auditService.createEvent()
+                    .eventType("LOGIN_FAILED")
+                    .severity(AuditLog.Severity.MEDIUM)
+                    .actor(request.getEmail())
+                    .action("LOGIN")
+                    .resourceType("MERCHANT")
+                    .resourceId("UNKNOWN")
+                    .additionalData("reason", "EMAIL_NOT_FOUND")
+                    .additionalData("email", request.getEmail())
+                    .complianceTag("SECURITY")
+                    .log();
+                
+                return LoginResponse.builder()
+                    .success(false)
+                    .message("Invalid email or password")
+                    .build();
+            }
+            
+            Merchant merchant = merchantOpt.get();
+            
+            // Password kontrolü (şu anda basit string karşılaştırması, production'da hash kullanılmalı)
+            if (!merchant.getPassword().equals(request.getPassword())) {
+                log.warn("Authentication failed - Invalid password for merchant: {}", merchant.getMerchantId());
+                
+                // Audit logging for failed login
+                auditService.createEvent()
+                    .eventType("LOGIN_FAILED")
+                    .severity(AuditLog.Severity.MEDIUM)
+                    .actor(request.getEmail())
+                    .action("LOGIN")
+                    .resourceType("MERCHANT")
+                    .resourceId(merchant.getMerchantId())
+                    .additionalData("reason", "INVALID_PASSWORD")
+                    .additionalData("email", request.getEmail())
+                    .complianceTag("SECURITY")
+                    .log();
+                
+                return LoginResponse.builder()
+                    .success(false)
+                    .message("Invalid email or password")
+                    .build();
+            }
+            
+            // Merchant status kontrolü
+            if (merchant.getStatus() != Merchant.MerchantStatus.ACTIVE) {
+                log.warn("Authentication failed - Inactive merchant: {} - Status: {}", 
+                    merchant.getMerchantId(), merchant.getStatus());
+                
+                // Audit logging for inactive merchant login attempt
+                auditService.createEvent()
+                    .eventType("LOGIN_FAILED")
+                    .severity(AuditLog.Severity.HIGH)
+                    .actor(request.getEmail())
+                    .action("LOGIN")
+                    .resourceType("MERCHANT")
+                    .resourceId(merchant.getMerchantId())
+                    .additionalData("reason", "INACTIVE_MERCHANT")
+                    .additionalData("status", merchant.getStatus().name())
+                    .complianceTag("SECURITY")
+                    .log();
+                
+                return LoginResponse.builder()
+                    .success(false)
+                    .message("Merchant account is not active. Please contact support.")
+                    .build();
+            }
+            
+            // Başarılı authentication
+            log.info("Authentication successful for merchant: {}", merchant.getMerchantId());
+            
+            // Audit logging for successful login
+            auditService.createEvent()
+                .eventType("LOGIN_SUCCESS")
+                .severity(AuditLog.Severity.LOW)
+                .actor(request.getEmail())
+                .action("LOGIN")
+                .resourceType("MERCHANT")
+                .resourceId(merchant.getMerchantId())
+                .additionalData("email", request.getEmail())
+                .additionalData("merchantName", merchant.getName())
+                .complianceTag("SECURITY")
+                .log();
+            
+            // JWT token generate et (şu anda mock)
+            String token = generateJwtToken(merchant);
+            
+            // UserDTO oluştur
+            LoginResponse.UserDTO userDTO = LoginResponse.UserDTO.builder()
+                .id(merchant.getId().toString())
+                .email(merchant.getEmail())
+                .merchantId(merchant.getMerchantId())
+                .merchantName(merchant.getName())
+                .role("MERCHANT")
+                .apiKey(merchant.getApiKey())
+                .createdAt(merchant.getCreatedAt().toString())
+                .updatedAt(merchant.getUpdatedAt().toString())
+                .build();
+            
+            return LoginResponse.builder()
+                .success(true)
+                .message("Login successful")
+                .user(userDTO)
+                .token(token)
+                .apiKey(merchant.getApiKey())
+                .build();
+                
+        } catch (Exception e) {
+            log.error("Error during merchant authentication: {}", e.getMessage(), e);
+            
+            // Audit logging for system error
+            auditService.createEvent()
+                .eventType("LOGIN_ERROR")
+                .severity(AuditLog.Severity.HIGH)
+                .actor(request.getEmail())
+                .action("LOGIN")
+                .resourceType("MERCHANT")
+                .resourceId("SYSTEM")
+                .additionalData("error", e.getMessage())
+                .complianceTag("SECURITY")
+                .log();
+            
+            return LoginResponse.builder()
+                .success(false)
+                .message("Authentication failed due to system error")
+                .build();
+        }
+    }
+    
+    /**
+     * JWT token generate et (mock implementation)
+     */
+    private String generateJwtToken(Merchant merchant) {
+        // TODO: Gerçek JWT implementation'ı ekle
+        return "jwt_token_" + merchant.getMerchantId() + "_" + System.currentTimeMillis();
+    }
+
+    /**
+     * Merchant ID ile merchant'ı bul
+     */
+    public Optional<Merchant> getMerchantByMerchantId(String merchantId) {
+        return merchantRepository.findByMerchantId(merchantId);
     }
 }

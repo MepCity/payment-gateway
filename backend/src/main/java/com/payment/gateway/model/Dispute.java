@@ -68,6 +68,46 @@ public class Dispute {
     @Column
     private LocalDateTime resolutionDate;
     
+    // Yeni alanlar - Bank Dispute Management
+    @Column(length = 100)
+    private String bankDisputeId;
+    
+    @Column(length = 2000)
+    private String bankNotificationData;
+    
+    @Column
+    private LocalDateTime merchantResponseDeadline;
+    
+    @Column(length = 20)
+    private String merchantResponse; // ACCEPT, DEFEND, AUTO_ACCEPTED_EXPIRED
+    
+    @Column(length = 3000)
+    private String merchantDefenseEvidence;
+    
+    @Column
+    private LocalDateTime merchantResponseDate;
+    
+    @Column(length = 2000)
+    private String adminEvaluation;
+    
+    @Column(length = 50)
+    private String adminDecision; // APPROVE_MERCHANT, APPROVE_CUSTOMER, PARTIAL_REFUND
+    
+    @Column(length = 50)
+    private String bankFinalDecision; // MERCHANT_APPROVED, CUSTOMER_APPROVED
+    
+    @Column(precision = 10, scale = 2)
+    private BigDecimal chargebackAmount;
+    
+    @Column(length = 50)
+    private String bankName; // GARANTI_BBVA, ISBANK, YAPIKREDI
+    
+    @Column
+    private LocalDateTime adminEvaluationDeadline; // Admin evaluation deadline
+    
+    @Column(length = 2000)
+    private String adminNotes; // Admin notları
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -77,11 +117,30 @@ public class Dispute {
     private LocalDateTime updatedAt;
     
     public enum DisputeStatus {
-        OPENED, UNDER_REVIEW, EVIDENCE_REQUIRED, RESOLVED, CLOSED, WON, LOST, PARTIAL_REFUND
+        OPENED, UNDER_REVIEW, EVIDENCE_REQUIRED, RESOLVED, CLOSED, WON, LOST, PARTIAL_REFUND,
+        // Yeni bank-initiated dispute statuses
+        BANK_INITIATED,                 // Banka tarafından başlatıldı
+        MERCHANT_NOTIFIED,              // Merchant'a bildirim gönderildi 
+        AWAITING_MERCHANT_RESPONSE,     // Merchant cevabı bekleniyor
+        PENDING_MERCHANT_RESPONSE,      // Merchant response bekleniyor (scheduler için)
+        MERCHANT_ACCEPTED,              // Merchant kabul etti
+        MERCHANT_DEFENDED,              // Merchant savunma yaptı
+        ADMIN_EVALUATING,               // Admin değerlendiriyor
+        PENDING_ADMIN_EVALUATION,       // Admin evaluation bekleniyor (scheduler için)
+        BANK_DECISION_PENDING,          // Banka kararı bekleniyor
+        BANK_APPROVED,                  // Banka merchant'ı onayladı
+        BANK_REJECTED                   // Banka customer'ı onayladı
     }
     
     public enum DisputeReason {
         FRAUD, DUPLICATE, PRODUCT_NOT_RECEIVED, PRODUCT_NOT_AS_DESCRIBED, 
-        CREDIT_NOT_PROCESSED, GENERAL, OTHER
+        CREDIT_NOT_PROCESSED, GENERAL, OTHER,
+        // Yeni bank dispute reasons
+        UNAUTHORIZED_TRANSACTION,       // Yetkisiz işlem
+        NON_RECEIPT,                   // Ürün alınmadı
+        DEFECTIVE_PRODUCT,             // Hatalı ürün
+        SUBSCRIPTION_CANCELLED,        // Abonelik iptal edildi
+        DUPLICATE_CHARGE,              // Çift ücretlendirme
+        PROCESSING_ERROR               // İşlem hatası
     }
 }

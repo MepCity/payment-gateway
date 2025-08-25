@@ -11,6 +11,9 @@ import {
   MenuItem,
   Avatar,
   Divider,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -18,6 +21,7 @@ import {
   Notifications,
   AccountCircle,
   ExitToApp,
+  Store,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import ThemeToggle from '../common/ThemeToggle';
@@ -28,8 +32,16 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ sidebarOpen, onSidebarToggle }) => {
-  const { state, logout } = useAuth();
+  const { state, logout, switchMerchant } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  
+  // Demo merchant listesi
+  const demoMerchants = [
+    { id: 'TEST_MERCHANT', name: 'Test Merchant' },
+    { id: 'DEMO_STORE', name: 'Demo Store' },
+    { id: 'SAMPLE_SHOP', name: 'Sample Shop' },
+    { id: 'ADMIN_MERCHANT', name: 'Admin Dashboard' },
+  ];
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -152,6 +164,24 @@ const Header: React.FC<HeaderProps> = ({ sidebarOpen, onSidebarToggle }) => {
               borderColor: 'warning.main'
             }}
           />
+          
+          {/* Merchant Selector */}
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel id="merchant-select-label">Merchant</InputLabel>
+            <Select
+              labelId="merchant-select-label"
+              value={state.user?.merchantId || ''}
+              label="Merchant"
+              onChange={(e) => switchMerchant(e.target.value)}
+              startAdornment={<Store sx={{ mr: 1, color: 'text.secondary' }} />}
+            >
+              {demoMerchants.map((merchant) => (
+                <MenuItem key={merchant.id} value={merchant.id}>
+                  {merchant.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Box>
 
         {/* Right Section */}
